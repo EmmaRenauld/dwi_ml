@@ -9,14 +9,14 @@ from scilpy.tracking.tools import resample_streamlines_step_size
 import torch
 import torch.multiprocessing
 from torch.nn.utils.rnn import pack_sequence
-from torch.utils.data import Dataset, Sampler
+from torch.utils.data import Sampler
 
 from dwi_ml.data.dataset.multi_subject_containers import (
     LazyMultiSubjectDataset, MultiSubjectDataset)
 from dwi_ml.data.processing.space.neighbourhood import (
     get_neighborhood_vectors_axes, get_neighborhood_vectors_grid)
 from dwi_ml.data.processing.streamlines.data_augmentation import (
-    add_noise_to_streamlines, split_streamlines)
+    add_noise_to_streamlines, reverse_streamlines, split_streamlines)
 
 """
 These batch samplers can then be used in a torch DataLoader. For instance:
@@ -57,7 +57,8 @@ contribute to dwi_ml if no batch sampler fits your needs.
 """
 # Note that we use default noise variance for compressed streamlines,
 # otherwise 0.1 * step-size
-DEFAULT_NOISE_MM = 0.1
+DEFAULT_NOISE_SIGMA_MM = 0.1
+DEFAULT_REVERSE_RATIO = 0.5
 
 
 class BatchSamplerAbstract(Sampler):
@@ -84,8 +85,7 @@ class BatchSamplerAbstract(Sampler):
                  neighborhood_type: str = None,
                  neighborhood_radius_vox: Union[int, float,
                                                 Iterable[float]] = None,
-                 streamlines_split_ratio: float = None,
-                 add_previous_dir: bool = False,
+                 split_ratio: float = None, add_previous_dir: bool = False,
                  do_interpolation: bool = False):
         """
         Parameters
@@ -124,7 +124,7 @@ class BatchSamplerAbstract(Sampler):
                 - For a grid neighborhood: type must be int.
                 - For an axes neighborhood: type must be float. If it is an
                 iterable of floats, we will use a multi-radius neighborhood.
-        streamlines_split_ratio : float
+        split_ratio : float
             Percentage of streamlines to randomly split into 2, in each batch.
             The reason for cutting is to help the ML algorithm to track from
             the middle of WM by having already seen half-streamlines. If you
@@ -169,9 +169,8 @@ class BatchSamplerAbstract(Sampler):
         # Concerning the choice of streamlines:
         # Noise, resampling, cutting, interpolation.
         self.do_interpolation = do_interpolation
-        self.default_noise_mm = DEFAULT_NOISE_MM
         self.use_streamline_noise = use_streamline_noise
-        self.streamlines_cut_ratio = streamlines_split_ratio
+        self.split_ratio = split_ratio
 
         # Concerning the use of inputs
         self.add_previous_dir = add_previous_dir
@@ -195,18 +194,10 @@ class BatchSamplerAbstract(Sampler):
         """
         Prepare neighborhood information for a given group.
         Always based on the first subject.
+
+        Results are in the voxel world.
         """
         if self.neighborhood_type is not None:
-            # Get affine. NOT NECESSARY ANYMORE BECAUSE FUNCTION HAS BEEN CHANGED
-            # TO GET RADIUS IN VOX, NOT IN mm. WE WILL NEED AFFINE OUTSIDE THIS
-            # CLASS, TO CONVERT mm to vox
-            #if type(self.data_source) == LazyMultiSubjectDataset:
-            #    subj = self.data_source.data_list[(0, self.hdf_file)]
-            #else:
-            #    subj = self.data_source.data_list[0]
-            #affine = subj.mri_data_list[group_idx].affine
-            # OR WE COULD EVEN COMPUTE NEIGHBORHOOD INFORMATION OUTSIDE CLASS.
-
             if self.neighborhood_type == 'axes':
                 self.neighborhood_points = get_neighborhood_vectors_axes(
                     self.neighborhood_radius)
@@ -229,7 +220,7 @@ class BatchSamplerSequence(BatchSamplerAbstract):
                  neighborhood_type: str = None,
                  neighborhood_radius_vox: Union[int, float,
                                                 Iterable[float]] = None,
-                 streamlines_split_ratio: float = None,
+                 split_ratio: float = None,
                  add_previous_dir: bool = False,
                  do_interpolation: bool = False):
         """
@@ -239,7 +230,7 @@ class BatchSamplerSequence(BatchSamplerAbstract):
         """
         super().__init__(data_source, batch_size, rng, n_volumes, cycles,
                          use_streamline_noise, step_size, neighborhood_type,
-                         neighborhood_radius_vox, streamlines_split_ratio,
+                         neighborhood_radius_vox, split_ratio,
                          add_previous_dir, do_interpolation)
 
         self.streamline_group_name = streamline_group_name
@@ -266,12 +257,8 @@ class BatchSamplerSequence(BatchSamplerAbstract):
             logging.debug("    Subj {}".format(subj_idx+1))
 
             # Get streamlines
-            streamlines = self.data_source.get_subject_streamlines_subset(
+            sub_sft = self.data_source.get_subject_streamlines_subset(
                 subj_idx, y_ids)
-
-            # Make sure streamlines are stored in a list
-            if isinstance(streamlines, ArraySequence):
-                streamlines = [s for s in streamlines]
 
             # Get affine. Used to preprocess streamlines
             subj = self.data_source.get_subject_data(subj_idx)
@@ -279,20 +266,22 @@ class BatchSamplerSequence(BatchSamplerAbstract):
 
             # Resample streamlines to a fixed step size
             if self.step_size:
-                streamlines = resample_streamlines_step_size(
-                    streamlines, step_size=self.step_size)                                          # toDo. Now takes an sft as input!
+                sub_sft = resample_streamlines_step_size(
+                    sub_sft, step_size=self.step_size)
 
             # Add noise to coordinates
+            # - Gaussian noise (truncated to +/- 2*noise_sigma): in mm
+            # - We need to make sure the sft is in rasmm space
             # ToDo: add a variance in the distribution of noise between epoques.
             #  Comme ça, la même streamline pourra être vue plusieurs fois
             #  (dans plsr époques) mais plus ou moins bruitée d'une fois à
             #  l'autre.
-            # toDo: now takes sft as input!
             if self.use_streamline_noise:
-                noise_mm = self.default_noise_mm * (self.step_size or 1.)
-                streamlines = add_noise_to_streamlines(
-                    streamlines, noise_mm, self.rng,
-                    convert_mm_to_vox=True, affine=affine_vox2rasmm)
+                sub_sft.to_rasmm()
+                noise_sigma_mm = DEFAULT_NOISE_SIGMA_MM * (self.step_size
+                                                           or 1.)
+                sub_sft = add_noise_to_streamlines(sub_sft, noise_sigma_mm,
+                                                   self._rng)
 
             # Splitting some streamlines into 2 at random positions and
             # keeping both segments as two independent streamlines
@@ -301,41 +290,36 @@ class BatchSamplerSequence(BatchSamplerAbstract):
             #   of timesteps.
             # - We need to do it subject per subject to keep track of the
             #   streamline ids.
-            if self.streamlines_cut_ratio:
-                all_ids = np.arange(len(streamlines))
-                n_to_split = int(np.floor(len(streamlines) *
-                                          self.streamlines_cut_ratio))
-                split_ids = self.rng.choice(all_ids, size=n_to_split,
-                                            replace=False)
+            if self.split_ratio:
+                all_ids = np.arange(len(sub_sft))
+                n_to_split = int(np.floor(len(sub_sft) * self.split_ratio))
+                split_ids = self._rng.choice(all_ids, size=n_to_split,
+                                             replace=False)
+                sub_sft = split_streamlines(sub_sft, self._rng, split_ids)
 
-                # ToDo: once everything is sft, use new function:
-                streamlines = split_streamlines(sft, self.rng, split_ids)
+            # Reverse (flip) half of streamline batch
+            # You could want to reverse ALL your data and then use both the
+            # initial data and reversed data. But this would take twice the
+            # memory. Here, for each epoch, you have 50% chance to be reversed.
+            # If you train for enough epochs, high chance that you will have
+            # used both directions of your streamline at least once.
+            # A way to absolutely ensure using both directions the same number
+            # of time, we could use a flag and at each epoch, reverse those
+            # with unreversed flag. But that adds a bool for each streamline
+            # in your dataset and probably not so useful.
+            ids = np.arange(len(sub_sft))
+            self._rng.shuffle(ids)
+            reverse_ids = ids[:int(len(ids) * DEFAULT_REVERSE_RATIO)]
+            sub_sft = reverse_streamlines(sub_sft, reverse_ids)
 
             # Remember the indices of the Y sub-batch
             subbatcht_start = len(batch_streamlines)
-            subbatcht_end = subbatcht_start + len(streamlines)
+            subbatcht_end = subbatcht_start + len(sub_sft)
             batch_subj_to_y_ids_processed[subj_idx] = \
                 slice(subbatcht_start, subbatcht_end)
 
             # Add Y streamlines to batch
-            batch_streamlines.extend(streamlines)
-
-        # Flip half of streamline batch
-        # You could want to flip ALL your data and then use both the initial
-        # data and flipped data. But this would take twice the memory. Here, for
-        # each epoch, you have 50% chance to be flipped. If you train for enough
-        # epochs, high chance that you will have used both directions of your
-        # streamline at least once. A way to absolutely ensure using both
-        # directions the same number of time, we could use a flag and at each
-        # epoch, flip those with unflipped flag. But that adds a bool for each
-        # streamline in your dataset and probably not so useful.
-        ids = np.arange(len(batch_streamlines))
-        self.rng.shuffle(ids)
-        flip_ids = ids[:len(ids) // 2]
-        batch_streamlines = [flip_streamlines(s) if i in flip_ids else s
-                             for i, s in enumerate(batch_streamlines)]
-        # ToDo
-        #  To change. See new function: sft = reverse_streamlines(sft, flip_ids)
+            batch_streamlines.extend(sub_sft)
 
         return batch_streamlines, batch_subj_to_y_ids_processed
 
@@ -345,7 +329,7 @@ class BatchSamplerSequence(BatchSamplerAbstract):
         """
         target = [torch.as_tensor(s[1:] - s[:-1],
                                   dtype=torch.float32,
-                                  device=self.device)
+                                  device=self.data_source.device)
                   for s in batch_streamlines]
         return target
 
@@ -370,12 +354,12 @@ class BatchSamplerOneInputVolumeSequence(BatchSamplerSequence):
                  n_volumes: int = None, cycles: int = None,
                  use_streamline_noise: bool = False, step_size: float = None,
                  neighborhood_radius_vox: float = None, nb_neighborhood_axes=6,
-                 streamlines_split_ratio: float = None,
+                 split_ratio: float = None,
                  add_previous_dir: bool = False,
                  do_interpolation: bool = False):
         super().__init__(streamline_group_name, data_source, batch_size, rng, n_volumes, cycles,
                          use_streamline_noise, step_size, neighborhood_radius_vox,
-                         nb_neighborhood_axes, streamlines_split_ratio,
+                         nb_neighborhood_axes, split_ratio,
                          add_previous_dir, do_interpolation)
 
         self.input_group_name = input_group_name
@@ -383,6 +367,10 @@ class BatchSamplerOneInputVolumeSequence(BatchSamplerSequence):
         self.input_group_idx = find(self.input_group_name ==
                                     data_source.volume_groups)
 
+    # Already defined methods in super:
+    # get_batch_y
+    # get_batch_target
+    
     def __iter__(self):
         """First sample the volumes to be used from a given number of desired
         volumes, then sample streamline ids inside those volumes.
@@ -492,6 +480,7 @@ class BatchSamplerOneInputVolumeSequence(BatchSamplerSequence):
                     break
 
                 yield batch
+
 
     def collate_fn(self, batch_ids: List[Tuple[int, int]]):
         """

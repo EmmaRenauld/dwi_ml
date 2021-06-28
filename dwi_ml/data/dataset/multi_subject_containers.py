@@ -19,7 +19,7 @@ import logging
 import os
 from typing import List, Tuple, Union
 
-from dipy.io.stateful_tractogram import Space
+from dipy.io.stateful_tractogram import Space, StatefulTractogram
 from dipy.tracking.utils import length as tractogram_length
 import h5py
 import numpy as np
@@ -251,8 +251,13 @@ class MultiSubjectDataset(MultiSubjectDatasetAbstract):
         mri = self.get_subject_data(subj_idx).mri_data_list[group_idx]
         return mri.as_tensor
 
-    def get_subject_streamlines_subset(self, subj_idx, ids):
-        """Same in lazy version, but the "streamlines" is not the same"""
+    def get_subject_streamlines_subset(self, subj_idx, ids) \
+            -> StatefulTractogram:
+        """
+        Same in lazy version, but the "streamlines" is not the same.
+
+        A sub-sft still is a sft.
+        """
         return self.get_subject_data(subj_idx).sft[ids]
 
 
@@ -347,8 +352,13 @@ class LazyMultiSubjectDataset(MultiSubjectDatasetAbstract):
             mri = self.get_subject_data(subj_idx).mri_data_list[group_idx]
             return mri.as_tensor
 
-    def get_subject_streamlines_subset(self, subj_idx, ids):
-        """Same in non-lazy version, but the "streamlines" is not the same"""
+    def get_subject_streamlines_subset(self, subj_idx, ids) \
+            -> StatefulTractogram:
+        """
+        Same in non-lazy version, but the "streamlines" is not the same.
+
+        A sub-sft still is a sft.
+        """
         return self.get_subject_data(subj_idx).streamlines[ids]
 
     def __del__(self):
