@@ -16,7 +16,7 @@ from dwi_ml.data.dataset.multi_subject_containers import (
 from dwi_ml.data.processing.space.neighbourhood import (
     get_neighborhood_vectors_axes, get_neighborhood_vectors_grid)
 from dwi_ml.data.processing.streamlines.data_augmentation import (
-    add_noise_to_streamlines)
+    add_noise_to_streamlines, split_streamlines)
 
 """
 These batch samplers can then be used in a torch DataLoader. For instance:
@@ -84,7 +84,7 @@ class BatchSamplerAbstract(Sampler):
                  neighborhood_type: str = None,
                  neighborhood_radius_vox: Union[int, float,
                                                 Iterable[float]] = None,
-                 streamlines_cut_ratio: float = None,
+                 streamlines_split_ratio: float = None,
                  add_previous_dir: bool = False,
                  do_interpolation: bool = False):
         """
@@ -124,12 +124,12 @@ class BatchSamplerAbstract(Sampler):
                 - For a grid neighborhood: type must be int.
                 - For an axes neighborhood: type must be float. If it is an
                 iterable of floats, we will use a multi-radius neighborhood.
-        streamlines_cut_ratio : float
-            Percentage of streamlines to randomly cut in each batch. The reason
-            for cutting is to help the ML algorithm to track from the middle of
-            WM by having already seen half-streamlines. If you are using
-            interface seeding, this is not necessary. If None, do not split
-            streamlines. [None]
+        streamlines_split_ratio : float
+            Percentage of streamlines to randomly split into 2, in each batch.
+            The reason for cutting is to help the ML algorithm to track from
+            the middle of WM by having already seen half-streamlines. If you
+            are using interface seeding, this is not necessary. If None, will
+            not split streamlines. [None]
         add_previous_dir : bool
             If set, concatenate the previous streamline direction as input.
             [False]
@@ -171,7 +171,7 @@ class BatchSamplerAbstract(Sampler):
         self.do_interpolation = do_interpolation
         self.default_noise_mm = DEFAULT_NOISE_MM
         self.use_streamline_noise = use_streamline_noise
-        self.streamlines_cut_ratio = streamlines_cut_ratio
+        self.streamlines_cut_ratio = streamlines_split_ratio
 
         # Concerning the use of inputs
         self.add_previous_dir = add_previous_dir
@@ -229,7 +229,7 @@ class BatchSamplerSequence(BatchSamplerAbstract):
                  neighborhood_type: str = None,
                  neighborhood_radius_vox: Union[int, float,
                                                 Iterable[float]] = None,
-                 streamlines_cut_ratio: float = None,
+                 streamlines_split_ratio: float = None,
                  add_previous_dir: bool = False,
                  do_interpolation: bool = False):
         """
@@ -239,7 +239,7 @@ class BatchSamplerSequence(BatchSamplerAbstract):
         """
         super().__init__(data_source, batch_size, rng, n_volumes, cycles,
                          use_streamline_noise, step_size, neighborhood_type,
-                         neighborhood_radius_vox, streamlines_cut_ratio,
+                         neighborhood_radius_vox, streamlines_split_ratio,
                          add_previous_dir, do_interpolation)
 
         self.streamline_group_name = streamline_group_name
@@ -280,24 +280,27 @@ class BatchSamplerSequence(BatchSamplerAbstract):
             # Resample streamlines to a fixed step size
             if self.step_size:
                 streamlines = resample_streamlines_step_size(
-                    streamlines, step_size=self.step_size)
+                    streamlines, step_size=self.step_size)                                          # toDo. Now takes an sft as input!
 
             # Add noise to coordinates
             # ToDo: add a variance in the distribution of noise between epoques.
             #  Comme ça, la même streamline pourra être vue plusieurs fois
             #  (dans plsr époques) mais plus ou moins bruitée d'une fois à
             #  l'autre.
+            # toDo: now takes sft as input!
             if self.use_streamline_noise:
                 noise_mm = self.default_noise_mm * (self.step_size or 1.)
                 streamlines = add_noise_to_streamlines(
                     streamlines, noise_mm, self.rng,
                     convert_mm_to_vox=True, affine=affine_vox2rasmm)
 
-            # Cut streamlines in random positions, using the same ratio for each
-            # Cutting keeps both segments as two independent streamlines, and
-            # increases the batch size (but does not change the number of
-            # timesteps). Need to do it subject per subject to keep track of the
-            # streamline ids.
+            # Splitting some streamlines into 2 at random positions and
+            # keeping both segments as two independent streamlines
+            # - The number of streamlines to split depends on the split_ratio.
+            # - This increases the batch size, but does not change the number
+            #   of timesteps.
+            # - We need to do it subject per subject to keep track of the
+            #   streamline ids.
             if self.streamlines_cut_ratio:
                 all_ids = np.arange(len(streamlines))
                 n_to_split = int(np.floor(len(streamlines) *
@@ -306,8 +309,7 @@ class BatchSamplerSequence(BatchSamplerAbstract):
                                             replace=False)
 
                 # ToDo: once everything is sft, use new function:
-                streamlines = split_streamlines(sft, self.rng,
-                                                        split_ids)
+                streamlines = split_streamlines(sft, self.rng, split_ids)
 
             # Remember the indices of the Y sub-batch
             subbatcht_start = len(batch_streamlines)
@@ -368,12 +370,12 @@ class BatchSamplerOneInputVolumeSequence(BatchSamplerSequence):
                  n_volumes: int = None, cycles: int = None,
                  use_streamline_noise: bool = False, step_size: float = None,
                  neighborhood_radius_vox: float = None, nb_neighborhood_axes=6,
-                 streamlines_cut_ratio: float = None,
+                 streamlines_split_ratio: float = None,
                  add_previous_dir: bool = False,
                  do_interpolation: bool = False):
         super().__init__(streamline_group_name, data_source, batch_size, rng, n_volumes, cycles,
                          use_streamline_noise, step_size, neighborhood_radius_vox,
-                         nb_neighborhood_axes, streamlines_cut_ratio,
+                         nb_neighborhood_axes, streamlines_split_ratio,
                          add_previous_dir, do_interpolation)
 
         self.input_group_name = input_group_name
