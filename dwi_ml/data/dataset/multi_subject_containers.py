@@ -113,7 +113,7 @@ class MultiSubjectDatasetAbstract(Dataset):
                 # In the lazy case, we need to load the data first using the
                 # __getitem__ from the datalist, and passing the hdf handle.
                 # For the non-lazy version, this does nothing.
-                subj_data = subj_data.with_handle(hdf_file, self.groups)
+                subj_data = subj_data.load(hdf_file)
                 streamline_lengths_mm_list = self._arrange_streamlines(
                     subj_data, subj_idx, streamline_lengths_mm_list)
 
@@ -202,7 +202,16 @@ class MultiSubjectDataset(MultiSubjectDatasetAbstract):
     """Dataset containing multiple SubjectData objects saved in a DataList."""
     def __init__(self, hdf5_path: str, name: str = None,
                  taskman_managed: bool = False):
+        #  Reminder. Super will init following variables:
+        #      hdf5_path, name, taskman_managed = taskman_managed, log,
+        #      data_list, groups, subjID_to_streamlineID, total_streamlines,
+        #      streamline_lengths_mm
         super().__init__(hdf5_path, name, taskman_managed)
+
+    # Note: Using super's methods:  load_training_data
+    #                               _arrange_streamlines
+    #                               __len__
+    #                               __getitem__
 
     @staticmethod
     def _build_data_list(hdf_file):
@@ -243,6 +252,10 @@ class LazyMultiSubjectDataset(MultiSubjectDatasetAbstract):
                  taskman_managed: bool = False,
                  device: torch.device = torch.device('cpu'),
                  cache_size: int = 0):
+        #  Reminder. Super will init following variables:
+        #      hdf5_path, name, taskman_managed = taskman_managed, log,
+        #      data_list, groups, subjID_to_streamlineID, total_streamlines,
+        #      streamline_lengths_mm
         super().__init__(hdf5_path, name, taskman_managed)
 
         self.device = device
@@ -258,6 +271,11 @@ class LazyMultiSubjectDataset(MultiSubjectDatasetAbstract):
         self.hdf_handle = None
         if self.cache_size > 0:
             self.volume_cache_manager = None
+
+    # Note: Using super's methods:  load_training_data
+    #                               _arrange_streamlines
+    #                               __len__
+    #                               __getitem__
 
     @staticmethod
     def _build_data_list(hdf_file):

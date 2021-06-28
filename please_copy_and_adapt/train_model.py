@@ -23,7 +23,7 @@ import yaml
 import numpy as np
 import torch
 
-from dwi_ml.model.batch_samplers import (TrainingBatchSamplerOneInputVolume,
+from dwi_ml.model.batch_samplers import (BatchSamplerOneInputVolume,
                                          LazyTrainingBatchSamplerOneInputVolume)
 from dwi_ml.training.checks_for_experiment_parameters import (
     check_all_experiment_parameters, check_logging_level)
@@ -62,7 +62,7 @@ def init_datasets(hdf5_filename, name,
         if cache_manager:
             other_kw_args['cache_size'] = volumes_per_batch
     else:
-        dataset_cls = TrainingBatchSamplerOneInputVolume
+        dataset_cls = BatchSamplerOneInputVolume
 
     rng = np.random.RandomState(seed)
     dataset = dataset_cls(

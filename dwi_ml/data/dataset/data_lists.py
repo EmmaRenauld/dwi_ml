@@ -84,7 +84,8 @@ class DataListForTorch(DataListForTorchAbstract):
         return int(s)
 
     def __getitem__(self, subject_idx) -> SubjectData:
-        """ Necessary for torch"""
+        """ Necessary for torch.
+        Getting data already loaded for that subject trough SubjectData."""
         return self.subjects_data_list[subject_idx]
 
 
@@ -99,13 +100,15 @@ class LazyDataListForTorch(DataListForTorch):
                                     ).mri_data_list[group].shape[-1])
 
     def __getitem__(self, subject_item) -> LazySubjectData:
+        """ Necessary for torch.
+        Getting data which might not be loaded yet. However, groups to load
+        from the hdf5 handle should already be known. """
         assert type(subject_item) == tuple, \
             "Trying to get an item, but item should be a tuple: " \
-            "(subj_idx, hdf_handle, groups) where groups is the list of " \
-            "groups to load for this subject."
+            "(subj_idx, hdf_handle)"
 
-        subject_idx, subject_hdf_handle, groups = subject_item
-        partial_subjectdata = self.subjects_data_list[subject_idx]
-        subj_with_handle = partial_subjectdata.with_handle(subject_hdf_handle,
-                                                           groups)
-        return subj_with_handle
+        subject_idx, hdf_handle = subject_item
+        subj_non_loaded = self.subjects_data_list[subject_idx]
+        subj_loaded = subj_non_loaded.load(hdf_handle)
+
+        return subj_loaded

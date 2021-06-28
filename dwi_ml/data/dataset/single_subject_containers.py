@@ -181,9 +181,10 @@ class SubjectDataAbstract(object):
                       hdf_file, log=None):
         raise NotImplementedError
 
-    def with_handle(self, hdf_handle, groups):
-        """This will simply return data in the non-lazy version. In the lazy
-        version, this will add the hdf handle and load the data."""
+    def load(self, hdf_handle):
+        """In the non-lazy version, this will simply return self, which is the
+        SubjectData, already in a loaded state. In the lazy version, this will
+        add the hdf handle and load the data."""
         raise NotImplementedError
 
 
@@ -250,7 +251,7 @@ class SubjectData(SubjectDataAbstract):
 
         return subj_data
 
-    def with_handle(self, hdf_handle, groups):
+    def load(self, hdf_handle):
         # data is already loaded. No need to add a handle here.
         return self
 
@@ -322,7 +323,7 @@ class LazySubjectData(SubjectDataAbstract):
             name = 'streamlines/euclidean_lengths'
             return np.array(self.hdf_handle[self.subject_id][name])
 
-    def with_handle(self, hdf_handle, groups):
+    def load(self, hdf_handle):
         """We could find groups directly from the subject's keys but this way
         is safer in case one subject had different keys than others. Always
         using only the wanted groups."""
@@ -330,9 +331,7 @@ class LazySubjectData(SubjectDataAbstract):
             logging.warning('Using with_handle(), but hdf_handle is None!')
 
         if len(self.volume_groups) == 0:
-            first_subj_id = list(hdf_handle.keys())[0]
-            (self.volume_groups, self.streamline_group) = find_group_infos(
-                groups, hdf_handle[first_subj_id])
+            raise ValueError('This should not be happening. Rethink the code.')
 
         return LazySubjectData(volume_groups=self.volume_groups,
                                streamline_group=self.streamline_group,
