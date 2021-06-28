@@ -7,7 +7,6 @@ from typing import List
 
 from dipy.io.stateful_tractogram import (set_sft_logger_level, Space)
 from dipy.io.streamline import load_tractogram
-from dipy.tracking.utils import length
 import nibabel as nib
 import numpy as np
 from scilpy.tracking.tools import resample_streamlines_step_size
@@ -245,10 +244,6 @@ def process_streamlines(bundles_dir: Path, bundles, header: nib.Nifti1Header,
             else:
                 logging.info("          - Compressing")
                 bundle = compress_sft(bundle)
-
-            # Compute euclidean lengths (rasmm space)
-            bundle.to_space(Space.RASMM)
-            output_lengths.extend(length(bundle.streamlines))
 
             # Sending to wanted space
             bundle.to_space(space)

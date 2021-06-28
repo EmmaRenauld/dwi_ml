@@ -322,38 +322,24 @@ def _add_all_subjs_to_database(args, chosen_subjs: List[str],
             # Add the streamlines data
             # Header is the last group header if .tck, or 'same' if .trk
             logging.info('       - Processing bundles...')
-            tractogram, lengths = process_streamlines(
-                subj_input_dir.joinpath("bundles"), args.bundles, group_header,
-                args.step_size, space)
-            streamlines = tractogram.streamlines
+            sft = process_streamlines(subj_input_dir.joinpath("bundles"),
+                                      args.bundles, group_header,
+                                      args.step_size, space)
 
-            # Save streamlines
+            # Save sft
             if args.save_intermediate:
                 logging.info('       - Saving intermediate tractogram.')
-                save_tractogram(tractogram,
+                save_tractogram(sft,
                                 str(subj_intermediate_path.joinpath(
                                     "{}_all_streamlines.tck".format(subj_id))))
 
-            if streamlines is None:
+            if sft.streamlines is None:
                 logging.warning('Careful! Total tractogram for subject {} '
                                 'contained no streamlines!'.format(subj_id))
             else:
-                streamlines_group = subj_hdf.create_group('streamlines')
-
-                streamlines_group.attrs['space_attributes'] = \
-                    str(tractogram.space_attributes)
-                streamlines_group.attrs['space'] = space.value
+                streamlines_group = subj_hdf.create_dataset('streamlines',
+                                                            data=sft)
                 streamlines_group.attrs['type'] = 'streamlines'
-
-                # Accessing private Dipy values, but necessary
-                streamlines_group.create_dataset('data',
-                                                 data=streamlines._data)
-                streamlines_group.create_dataset('offsets',
-                                                 data=streamlines._offsets)
-                streamlines_group.create_dataset('lengths',
-                                                 data=streamlines._lengths)
-                streamlines_group.create_dataset('euclidean_lengths',
-                                                 data=lengths)
 
     print("Saved dataset : {}".format(hdf5_file_path))
 

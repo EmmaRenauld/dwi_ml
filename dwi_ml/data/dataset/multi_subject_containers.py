@@ -19,6 +19,8 @@ import logging
 import os
 from typing import List, Tuple, Union
 
+from dipy.io.stateful_tractogram import Space
+from dipy.tracking.utils import length as tractogram_length
 import h5py
 import numpy as np
 import torch.multiprocessing
@@ -130,7 +132,7 @@ class MultiSubjectDatasetAbstract(Dataset):
         Concatenating streamlines but remembering which id was which subject's
         streamline.
 
-        The subj_data.streamlines depend on the class: np.Array in the non-lazy
+        The subj_data.streamlines is a stateful tractogram in the non-lazy
         version, or property in the lazy version, returning streamlines only if
         a handle is present.
         """
@@ -141,7 +143,9 @@ class MultiSubjectDatasetAbstract(Dataset):
                 self.log.debug("*    Subject's handle must be present!")
 
         # Assign a unique ID to every streamline
-        n_streamlines = len(subj_data.streamlines)
+        # This will be used by batch samplers who will streamlines randomly
+        # amongst all subject's streamlines, and fetch them through their ID.
+        n_streamlines = len(subj_data.sft)
         self.log.debug("*    Subject had {} streamlines."
                        .format(n_streamlines))
 
@@ -152,8 +156,15 @@ class MultiSubjectDatasetAbstract(Dataset):
         self.total_streamlines += n_streamlines
 
         # Get number of timesteps per streamline
-        streamline_lengths_mm_list.append(
-            np.array(subj_data.lengths_mm, dtype=np.int16))
+        # This will influence the amount of streamlines that we can fetch per
+        # batch.
+        # We actually compute euclidean lengths (rasmm space), but it is
+        # closely related to the timestep.
+        # toDo. Explain more. What happens during batch sampling if compressed?
+        sft = subj_data.sft.to_space(Space.RASMM)
+        subj_data_lengths = tractogram_length(sft.streamlines)
+        streamline_lengths_mm_list.append(np.array(subj_data_lengths,
+                                                   dtype=np.int16))
 
         return streamline_lengths_mm_list
 
@@ -242,7 +253,7 @@ class MultiSubjectDataset(MultiSubjectDatasetAbstract):
 
     def get_subject_streamlines_subset(self, subj_idx, ids):
         """Same in lazy version, but the "streamlines" is not the same"""
-        return self.get_subject_data(subj_idx).streamlines[ids]
+        return self.get_subject_data(subj_idx).sft[ids]
 
 
 class LazyMultiSubjectDataset(MultiSubjectDatasetAbstract):

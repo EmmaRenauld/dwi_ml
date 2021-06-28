@@ -6,9 +6,8 @@ We expect the classes here to be used in data_list.py
 import logging
 from typing import List, Union
 
+from dipy.io.stateful_tractogram import StatefulTractogram
 import h5py
-import nibabel as nib
-from nibabel.streamlines import ArraySequence
 import numpy as np
 import torch
 
@@ -169,7 +168,7 @@ class SubjectDataAbstract(object):
             from which data was loaded.
         streamline_group: str
             The name of the streamline group. This should be 'streamlines'.
-        subj_id: str
+        subject_id: str
             The subject key in the hdf file
         """
         self.volume_groups = volume_groups
@@ -177,8 +176,8 @@ class SubjectDataAbstract(object):
         self.subject_id = subject_id
 
     @classmethod
-    def init_from_hdf(cls, subject_id: str, groups: List[str],
-                      hdf_file, log=None):
+    def init_from_hdf(cls, subject_id: str, groups: List[str], hdf_file,
+                      log=None):
         raise NotImplementedError
 
     def load(self, hdf_handle):
@@ -192,26 +191,24 @@ class SubjectData(SubjectDataAbstract):
     """Non-lazy version"""
     def __init__(self, volume_groups: List[str], streamline_group: str,
                  subject_id: str, mri_data_list: List[SubjectMRIData] = None,
-                 streamlines: nib.streamlines.ArraySequence = None,
-                 lengths_mm: np.array = None):
+                 sft: StatefulTractogram = None):
         """
+        Additional parameters for non-lazy Data:
+
         mri_data: List[SubjectMRIData]
             Volumes of MRI data in the format of SubjectMRIData classes. Each
             value of the list corresponds to a specific group from the config
             file, whose name is saved in groups.
-        streamlines: nib.streamlines.ArraySequence
-            The loaded streamlines. They contain ._data, ._offsets, ._lengths.
-        lengths_mm: np.array
-            The streamlines' euclidean lengths.
+        sft: StatefulTractogram
+            The loaded streamlines as a stateful tractogram.
         """
         super().__init__(volume_groups, streamline_group, subject_id)
         self.mri_data_list = mri_data_list
-        self.streamlines = streamlines
-        self.lengths_mm = lengths_mm
+        self.sft = sft
 
     @classmethod
-    def init_from_hdf(cls, subject_id: str, groups: List[str],
-                      hdf_file, log=None):
+    def init_from_hdf(cls, subject_id: str, groups: List[str], hdf_file,
+                      log=None):
         """
         Instantiating a single subject data: load info and use __init__
 
@@ -235,19 +232,10 @@ class SubjectData(SubjectDataAbstract):
         # Currently only one streamline group.
         for group in [streamline_group]:
             log.debug("*    => Adding subject's streamlines")
-            streamlines = ArraySequence()
-            streamlines._data = np.array(
-                hdf_file[subject_id][group]['data'])
-            streamlines._offsets = np.array(
-                hdf_file[subject_id][group]['offsets'])
-            streamlines._lengths = np.array(
-                hdf_file[subject_id][group]['lengths'])
-            lengths_mm = np.array(
-                hdf_file[subject_id][group]['euclidean_lengths'])
+            sft = hdf_file[subject_id][group]
 
         subj_data = cls(volume_groups, streamline_group, subject_id,
-                        mri_data_list=subject_mri_data_list,
-                        streamlines=streamlines, lengths_mm=lengths_mm)
+                        mri_data_list=subject_mri_data_list, sft=sft)
 
         return subj_data
 
@@ -356,54 +344,33 @@ class LazyStreamlinesGetter(object):
             return streamlines
 
         if isinstance(item, slice):
-            streamlines = []
-            streamlines_dataset = \
-                self.hdf_handle[self.subject_id][self.streamline_group]
-            offsets = streamlines_dataset['offsets'][item]
-            lengths = streamlines_dataset['lengths'][item]
-            for offset, length in zip(offsets, lengths):
-                streamlines.append(
-                    streamlines_dataset['data'][offset:offset + length])
+            return self._get_streamline(item)
 
         raise ValueError("LazyStreamlinesGetter supports only int, "
                          "list or slice")
 
-    def _get_streamline(self, idx):
-        streamlines_dataset = \
+    def _get_streamline(self, idx: Union[int, slice]):
+        sft = (
             self.hdf_handle[self.subject_id][self.streamline_group]
-        offset = streamlines_dataset['offsets'][idx]
-        length = streamlines_dataset['lengths'][idx]
-        data = streamlines_dataset['data'][offset:offset + length]
+        )  # type: StatefulTractogram
 
-        return data
+        return sft.streamlines[idx]
 
-    def get_all(self):
-        streamlines_dataset = \
-            self.hdf_handle[self.subject_id][self.streamline_group]
-
-        streamlines = nib.streamlines.ArraySequence()
-        streamlines._data = np.array(streamlines_dataset['data'])
-        streamlines._offsets = np.array(streamlines_dataset['offsets'])
-        streamlines._lengths = np.array(streamlines_dataset['lengths'])
-
-        return streamlines
-
+    """ Usage of this?
     def get_lengths(self):
-        """Get the lengths of all streamlines without loading everything
-        into memory"""
+        # Get the lengths of all streamlines without loading everything
+        # into memory
 
         streamlines_dataset = self.hdf_handle[self.subject_id]['streamlines']
         lengths = np.array(streamlines_dataset['lengths'], dtype=np.int16)
 
         return lengths
+    """
 
     def __len__(self):
-        return len(self.hdf_handle[self.subject_id]['streamlines/offsets'])
+        return len(self.hdf_handle[self.subject_id][self.streamline_group])
 
     def __iter__(self):
-        streamlines_dataset = self.hdf_handle[self.subject_id]['streamlines']
+        sft = self.hdf_handle[self.subject_id][self.streamline_group]
         for i in range(len(self)):
-            offset = streamlines_dataset['offsets'][i]
-            length = streamlines_dataset['lengths'][i]
-            data = streamlines_dataset['data'][offset:offset + length]
-            yield data
+            yield sft[i]
