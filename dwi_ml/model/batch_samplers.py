@@ -108,7 +108,7 @@ class BatchSamplerAbstract(Sampler):
                                           LazyMultiSubjectDataset],
                  streamline_group_name: str,
                  batch_size: int, rng: np.random.RandomState,
-                 n_subject: int = None, cycles: int = None,
+                 n_subjects_per_batch: int = None, cycles: int = None,
                  step_size: float = None, neighborhood_type: str = None,
                  neighborhood_radius_vox: Union[int, float,
                                                 Iterable[float]] = None,
@@ -135,15 +135,15 @@ class BatchSamplerAbstract(Sampler):
             step_size: fixed or compressed data.
         rng : np.random.RandomState
             Random number generator.
-        n_subject : int
+        n_subjects_per_batch : int
             Optional; maximum number of subjects to be used in a single batch.
             Depending on the model, this can avoid loading too many input
             volumes at the same time, for example. If None, always sample
             from all subjects.
         cycles : int
-            Optional, but required if `n_subjects` is given.
-            Number of batches re-using the same volumes before sampling new
-            ones.
+            Optional, but required if `n_subjects_per_batch` is given.
+            Number of batches re-using the same subjects (and thus the same
+            volumes) before sampling new ones.
         step_size : float
             Constant step size that every streamline should have between points
             (in mm). If None, train on streamlines as they are (ex,
@@ -208,17 +208,17 @@ class BatchSamplerAbstract(Sampler):
                              "value, but got batch_size={}".format(batch_size))
 
         # Checking that n_volumes was given if cycles was given
-        if cycles and not n_subject:
+        if cycles and not n_subjects_per_batch:
             raise ValueError("If `cycles_per_volume_batch` is defined, "
                              "`n_volumes` should be defined. Got: "
                              "n_volumes={}, cycles={}"
-                             .format(n_subject, cycles))
+                             .format(n_subjects_per_batch, cycles))
 
         # Batch sampler variables
         self.data_source = data_source
         self.streamline_group_name = streamline_group_name
         self._rng = rng
-        self.n_subjects = n_subject
+        self.n_subjects_per_batch = n_subjects_per_batch
         self.cycles = cycles
         self.step_size = step_size
         self.avoid_cpu_computations = avoid_cpu_computations
@@ -312,12 +312,13 @@ class BatchSamplerAbstract(Sampler):
                 break
 
             # Choose subjects from which to sample streamlines for this batch
-            if self.n_subjects:
+            if self.n_subjects_per_batch:
                 # Sampling first from subjects that were not seed a lot yet
                 weights = streamlines_per_subj / np.sum(streamlines_per_subj)
 
                 # Choosing only non-empty subjects
-                n_subjects = min(self.n_subjects, np.count_nonzero(weights))
+                n_subjects = min(self.n_subjects_per_batch,
+                                 np.count_nonzero(weights))
                 sampled_subjs = self._rng.choice(
                     np.arange(len(self.data_source.data_list)),
                     size=n_subjects, replace=False, p=weights)
@@ -462,7 +463,7 @@ class BatchSequencesSampler(BatchSamplerAbstract):
                                           LazyMultiSubjectDataset],
                  streamline_group_name: str,
                  batch_size: int, rng: np.random.RandomState,
-                 n_subject: int = None, cycles: int = None,
+                 n_subjects_per_batch: int = None, cycles: int = None,
                  step_size: float = None, neighborhood_type: str = None,
                  neighborhood_radius_vox: Union[int, float,
                                                 Iterable[float]] = None,
@@ -478,13 +479,14 @@ class BatchSequencesSampler(BatchSamplerAbstract):
         normalize_directions: bool
             If true, directions will be normalized. If the step size is fixed,
             it shouldn't make any difference. If streamlines are compressed,
-            it theory you should normalize, but you could hope that not
+            in theory you should normalize, but you could hope that not
             normalizing could give back to the algorithm a sense of distance
             between points.
         """
         super().__init__(data_source, streamline_group_name, batch_size, rng,
-                         n_subject, cycles, step_size, neighborhood_type,
-                         neighborhood_radius_vox, split_streamlines_ratio,
+                         n_subjects_per_batch, cycles, step_size,
+                         neighborhood_type, neighborhood_radius_vox,
+                         split_streamlines_ratio,
                          noise_gaussian_size, noise_gaussian_variability,
                          reverse_streamlines_ratio,
                          avoid_cpu_computations, device)
@@ -603,7 +605,7 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                                           LazyMultiSubjectDataset],
                  streamline_group_name: str, input_group_name: str,
                  batch_size: int, rng: np.random.RandomState,
-                 n_subject: int = None, cycles: int = None,
+                 n_subjects_per_batch: int = None, cycles: int = None,
                  step_size: float = None, neighborhood_type: str = None,
                  neighborhood_radius_vox: Union[int, float,
                                                 Iterable[float]] = None,
@@ -613,20 +615,20 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                  reverse_streamlines_ratio: float = 0.5,
                  avoid_cpu_computations: bool = None,
                  device: torch.device = torch.device('cpu'),
-                 normalize_directions: bool = True,
-                 add_previous_dir: bool = False):
+                 normalize_directions: bool = True, nb_previous_dirs: int = 0):
         """
         Additional parameters compared to super:
 
         input_group_name: str
             Name of the volume group to load as input.
-        add_previous_dir : bool
+        nb_previous_dirs : bool
             If set, concatenate the previous streamline direction as input.
             [False]
         """
         super().__init__(data_source, streamline_group_name, batch_size, rng,
-                         n_subject, cycles, step_size, neighborhood_type,
-                         neighborhood_radius_vox, split_streamlines_ratio,
+                         n_subjects_per_batch, cycles, step_size,
+                         neighborhood_type, neighborhood_radius_vox,
+                         split_streamlines_ratio,
                          noise_gaussian_size, noise_gaussian_variability,
                          reverse_streamlines_ratio, avoid_cpu_computations,
                          device, normalize_directions)
@@ -638,7 +640,7 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
         idx = self.data_source.volume_groups.index(input_group_name)
         self.input_group_idx = idx
 
-        self.add_previous_dir = add_previous_dir
+        self.nb_previous_dirs = nb_previous_dirs
 
     def load_batch(self, streamline_ids_per_subj: Dict[int, list],
                    save_batch_input_masks: bool = None):
@@ -792,14 +794,19 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
             batch_x_data.extend(subbatch_x_data)
 
         # Add previous directions to input
-        if self.add_previous_dir:
-            previous_dirs = [torch.cat((torch.zeros((1, 3),
-                                                    dtype=torch.float32,
-                                                    device=self.device),
-                                        d[:-1]))
-                             for d in batch_directions]
-            batch_x_data = [torch.cat((s, p), dim=1)
-                            for s, p in zip(batch_x_data, previous_dirs)]
+        # Using a for loop but
+        if self.nb_previous_dirs > 0:
+            for i in range(self.nb_previous_dirs):
+                raise NotImplementedError("Emma: I added the loop but I don't "
+                                          "know where to put i inside the loop."
+                                          "To test.")
+                previous_dirs = [torch.cat((torch.zeros((1, 3),
+                                                        dtype=torch.float32,
+                                                        device=self.device),
+                                            d[:-1]))
+                                 for d in batch_directions]
+                batch_x_data = [torch.cat((s, p), dim=1)
+                                for s, p in zip(batch_x_data, previous_dirs)]
 
         if save_batch_input_mask:
             return batch_x_data, batch_input_masks
