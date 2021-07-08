@@ -135,7 +135,7 @@ def test_non_lazy(ref, affine, header, saving_path):
     print('Initializing dataset...')
     logging.root.setLevel('INFO')
     fake_dataset = MultiSubjectDataset(args.hdf5_filename)
-    fake_dataset.load_training_data()
+    fake_dataset.load_data()
 
     print('\n\n\n=======================Test with batch size 10000 + resample')
     test_batch_loading_no_computations(fake_dataset, 10000, 0.5, ref,
@@ -179,7 +179,7 @@ def test_lazy(ref, affine, header, saving_path):
     print('Initializing dataset...')
     logging.root.setLevel('INFO')
     fake_dataset = LazyMultiSubjectDataset(args.hdf5_filename)
-    fake_dataset.load_training_data()
+    fake_dataset.load_data()
 
     print('\n\n\n=======================Test with batch size 10000 + resample')
     test_batch_loading_no_computations(fake_dataset, 10000, 0.5, ref,

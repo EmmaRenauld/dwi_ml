@@ -14,26 +14,7 @@ from dwi_ml.experiment.monitoring import ValueHistoryMonitor
 # toDo. See Philippe's code: Add checkpoints
 
 
-class DWIMLTrainerAbstractLocal:
-    """ Meant for projects working on learning local information in the
-    voxel. Information will be X = a voxel. """
-    def __init__(self):
-        raise NotImplementedError
-
-    def build_model(self):
-        raise NotImplementedError
-
-    def train(self, **kwargs):
-        raise NotImplementedError
-
-    def save(self):
-        raise NotImplementedError
-
-    def load_model(self, filepath, **kwargs):
-        raise NotImplementedError
-
-
-class DWIMLTrainerAbstractSequences:
+class DWIMLTrainerAbstract:
     """ Meant for projects working on learning tractography. Information will
     be X = sequences."""
     def __init__(self, training_dataset: MultiSubjectDataset,
