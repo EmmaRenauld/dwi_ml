@@ -116,8 +116,7 @@ class BatchSamplerAbstract(Sampler):
                  noise_gaussian_size: float = 0.,
                  noise_gaussian_variability: float = 0.,
                  reverse_streamlines_ratio: float = 0.5,
-                 avoid_cpu_computations: bool = None,
-                 device: torch.device = torch.device('cpu')):
+                 avoid_cpu_computations: bool = None):
         """
         Parameters
         ----------
@@ -196,8 +195,6 @@ class BatchSamplerAbstract(Sampler):
             (which is computed on CPU) will be skipped and should be performed
             by the user later. Ex: computing directions from the streamline
             coordinates, computing input interpolation, etc.
-        device: torch.device('cpu') or 'gpu'
-            The device to use
         """
         super().__init__(data_source)  # This does nothing but python likes it.
 
@@ -217,12 +214,16 @@ class BatchSamplerAbstract(Sampler):
         # Batch sampler variables
         self.data_source = data_source
         self.streamline_group_name = streamline_group_name
-        self._rng = rng
+        self.rng = rng
         self.n_subjects_per_batch = n_subjects_per_batch
         self.cycles = cycles
         self.step_size = step_size
         self.avoid_cpu_computations = avoid_cpu_computations
-        self.device = device
+        # Set device
+        if avoid_cpu_computations and torch.cuda.is_available():
+            self.device = torch.device('cuda')
+        else:
+            self.device = torch.device('cpu')
 
         # Batch size computation:
         # If self.step_size: we can't rely on the current number of time steps
@@ -256,6 +257,7 @@ class BatchSamplerAbstract(Sampler):
             raise ValueError("neighborhood type must be either 'axes', 'grid' "
                              "or None!")
         self.neighborhood_type = neighborhood_type
+        self.neighborhood_radius_vox = neighborhood_radius_vox
         if self.neighborhood_type is None and neighborhood_radius_vox:
             logging.warning("You have chosen not to add a neighborhood (value "
                             "None), but you have given a neighborhood radius. "
@@ -265,6 +267,38 @@ class BatchSamplerAbstract(Sampler):
                              "neighborhood.")
         self.neighborhood_points = prepare_neighborhood_information(
             neighborhood_type, neighborhood_radius_vox)
+
+    @property
+    def hyperparameters(self):
+        hyperparameters = {
+            'neighborhood_radius_vox': self.neighborhood_radius_vox,
+            'nb_neighbors': len(self.neighborhood_points),
+            'noise_gaussian_size': self.noise_gaussian_size,
+            'noise_gaussian_variability': self.noise_gaussian_variability,
+            'reverse_streamlines_ratio': self.reverse_ratio,
+            'split_streamlines_ratio': self.split_ratio,
+            'step_size': self.step_size
+        }
+        return hyperparameters
+
+    @property
+    def attributes(self):
+        """
+        All parameters. Contains at least all parameters that would be
+        necessary to create this batch sampler again.
+        """
+        attributes = {
+            'streamline_group_name': self.streamline_group_name,
+            'rng': self.rng,
+            'rng_state': self.rng.get_state(),
+            'avoid_cpu_computations': self.avoid_cpu_computations,
+            'device': self.device,
+            'batch_size': self.batch_size,
+            'cycles': self.cycles,
+            'n_subjects_per_batch': self.n_subjects_per_batch,
+        }
+        hyperparameters = self.hyperparameters
+        return attributes.update(hyperparameters)
 
     def __iter__(self) -> Iterator[Dict[int, list]]:
         """
@@ -319,7 +353,7 @@ class BatchSamplerAbstract(Sampler):
                 # Choosing only non-empty subjects
                 n_subjects = min(self.n_subjects_per_batch,
                                  np.count_nonzero(weights))
-                sampled_subjs = self._rng.choice(
+                sampled_subjs = self.rng.choice(
                     np.arange(len(self.data_source.data_list)),
                     size=n_subjects, replace=False, p=weights)
             else:
@@ -371,7 +405,7 @@ class BatchSamplerAbstract(Sampler):
                         # Sample a sub-batch of streamlines and get their
                         # heaviness
                         sample_global_ids = \
-                            self._rng.choice(subj_available_ids, CHUNK_SIZE)
+                            self.rng.choice(subj_available_ids, CHUNK_SIZE)
                         subj_data = self.data_source.get_subject_data(subj)
                         if self.step_size:
                             # batch_size is in mm.
@@ -429,7 +463,7 @@ class BatchSamplerAbstract(Sampler):
             sft.to_rasmm()
             sft = add_noise_to_streamlines(sft, self.noise_gaussian_size,
                                            self.noise_gaussian_variability,
-                                           self._rng, self.step_size)
+                                           self.rng, self.step_size)
 
         # Splitting streamlines
         # This increases the batch size, but does not change the total length
@@ -437,18 +471,37 @@ class BatchSamplerAbstract(Sampler):
             logging.debug('Splitting')
             all_ids = np.arange(len(sft))
             n_to_split = int(np.floor(len(sft) * self.split_ratio))
-            split_ids = self._rng.choice(all_ids, size=n_to_split,
-                                         replace=False)
-            sft = split_streamlines(sft, self._rng, split_ids)
+            split_ids = self.rng.choice(all_ids, size=n_to_split,
+                                        replace=False)
+            sft = split_streamlines(sft, self.rng, split_ids)
 
         # Reversing streamlines
         if self.reverse_ratio and self.reverse_ratio > 0:
             logging.debug('Reversing')
             ids = np.arange(len(sft))
-            self._rng.shuffle(ids)
+            self.rng.shuffle(ids)
             reverse_ids = ids[:int(len(ids) * self.reverse_ratio)]
             sft = reverse_streamlines(sft, reverse_ids)
         return sft
+
+    def load_batch(self, *args):
+        raise NotImplementedError
+
+    def compute_feature_sizes(self):
+        """
+        Depending on data augmentation and eventually on input information,
+        compute features sizes to help prepare an eventual model
+        """
+        """
+        Philippe:
+        expected_input_size = self.train_dataset.tractodata_manager.feature_size
+        if self.add_neighborhood:
+            expected_input_size += 26 * self.train_dataset.tractodata_manager.feature_size
+        if self.add_previous_dir:
+            expected_input_size += 128
+        return expected_input_size
+        """
+        raise NotImplementedError
 
 
 class BatchSequencesSampler(BatchSamplerAbstract):
@@ -472,7 +525,6 @@ class BatchSequencesSampler(BatchSamplerAbstract):
                  noise_gaussian_variability: float = 0.,
                  reverse_streamlines_ratio: float = 0.5,
                  avoid_cpu_computations: bool = None,
-                 device: torch.device = torch.device('cpu'),
                  normalize_directions: bool = True):
         """
         Additional parameters compared to super:
@@ -489,8 +541,14 @@ class BatchSequencesSampler(BatchSamplerAbstract):
                          split_streamlines_ratio,
                          noise_gaussian_size, noise_gaussian_variability,
                          reverse_streamlines_ratio,
-                         avoid_cpu_computations, device)
+                         avoid_cpu_computations)
         self.normalize_directions = normalize_directions
+
+    @property
+    def hyperparameters(self):
+        hyperparameters = super().hyperparameters
+        hyperparameters['normalize_directions'] = self.normalize_directions
+        return hyperparameters
 
     def load_batch(self, streamline_ids_per_subj: Dict[int, list]):
         """
@@ -575,6 +633,9 @@ class BatchSequencesSampler(BatchSamplerAbstract):
                                           enforce_sorted=False)
         return packed_directions
 
+    def compute_feature_sizes(self):
+        raise NotImplementedError
+
 
 class BatchPointsSampler(BatchSamplerAbstract):
     """
@@ -614,7 +675,6 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                  noise_gaussian_variability: float = 0.,
                  reverse_streamlines_ratio: float = 0.5,
                  avoid_cpu_computations: bool = None,
-                 device: torch.device = torch.device('cpu'),
                  normalize_directions: bool = True, nb_previous_dirs: int = 0):
         """
         Additional parameters compared to super:
@@ -631,7 +691,7 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                          split_streamlines_ratio,
                          noise_gaussian_size, noise_gaussian_variability,
                          reverse_streamlines_ratio, avoid_cpu_computations,
-                         device, normalize_directions)
+                         normalize_directions)
 
         self.input_group_name = input_group_name
         # Find group index in the data_source
@@ -641,6 +701,18 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
         self.input_group_idx = idx
 
         self.nb_previous_dirs = nb_previous_dirs
+
+    @property
+    def hyperparameters(self):
+        hyperparameters = super().hyperparameters
+        hyperparameters['nb_previous_dirs'] = self.nb_previous_dirs
+        return hyperparameters
+
+    @property
+    def attributes(self):
+        attributes = super().attributes
+        attributes.update({'input_group_name': self.input_group_name})
+        return attributes
 
     def load_batch(self, streamline_ids_per_subj: Dict[int, list],
                    save_batch_input_masks: bool = None):
@@ -812,3 +884,30 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
             return batch_x_data, batch_input_masks
         else:
             return batch_x_data
+
+    def compute_feature_sizes(self):
+        raise NotImplementedError
+
+
+def init_sequences_one_input_batch_sampler(
+        dataset, batch_size, rng_seed, max_n_subjects, cycles, step_size,
+        neighborhood_type, neighborhood_radius, split_ratio, noise_size,
+        noise_variability, reverse_ratio, avoid_cpu, normalize_directions,
+        num_previous_dirs, **unused_kwargs):
+
+    sampler = BatchSequencesSamplerOneInputVolume(
+        dataset, streamline_group_name='streamlines', input_group_name='input',
+        batch_size=batch_size, rng=rng_seed,
+        n_subjects_per_batch=max_n_subjects, cycles=cycles,
+        step_size=step_size, neighborhood_type=neighborhood_type,
+        neighborhood_radius_vox=neighborhood_radius,
+        split_streamlines_ratio=split_ratio, noise_gaussian_size=noise_size,
+        noise_gaussian_variability=noise_variability,
+        reverse_streamlines_ratio=reverse_ratio,
+        avoid_cpu_computations=avoid_cpu,
+        normalize_directions=normalize_directions,
+        nb_previous_dirs=num_previous_dirs)
+
+    logging.debug("Unused kwargs are: {}".format(unused_kwargs))
+
+    return sampler

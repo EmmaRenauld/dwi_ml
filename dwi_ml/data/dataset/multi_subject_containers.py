@@ -17,7 +17,7 @@ from collections import defaultdict
 from datetime import datetime
 import logging
 import os
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict, Any
 
 import h5py
 import numpy as np
@@ -26,12 +26,11 @@ from torch.utils.data import Dataset
 import tqdm
 
 from dwi_ml.cache.cache_manager import SingleThreadCacheManager
-from dwi_ml.data.dataset.data_lists import (DataListForTorch,
-                                            LazyDataListForTorch)
-from dwi_ml.data.dataset.single_subject_containers import (SubjectDataAbstract,
-                                                           SubjectData,
-                                                           LazySubjectData)
-
+from dwi_ml.data.dataset.data_lists import (
+    DataListForTorch, LazyDataListForTorch)
+from dwi_ml.data.dataset.single_subject_containers import (
+    SubjectDataAbstract, SubjectData, LazySubjectData)
+from dwi_ml.experiment.timer import Timer
 from dwi_ml.utils import TqdmLoggingHandler
 
 
@@ -113,6 +112,16 @@ class MultiSubjectDatasetAbstract(Dataset):
         self.streamline_id_slice_per_subj = None
         self.total_streamlines = None
         self.streamline_lengths_mm = None
+
+    @property
+    def attributes(self) -> Dict[str, Any]:
+        all_params = {
+            'hdf5_path': self.hdf5_path,
+            'name': self.name,
+            'set': self.set,
+            'taskman_managed': self.taskman_managed,
+        }
+        return all_params
 
     def load_data(self):
         """
@@ -263,6 +272,19 @@ class MultiSubjectDataset(MultiSubjectDatasetAbstract):
                  taskman_managed: bool = False):
         super().__init__(hdf5_path, subjs_set, name, taskman_managed)
 
+        # This will accelerate verification of laziness, compared to
+        # is_instance(data, LazyMultiSubjectDataset)
+        self.is_lazy = False
+
+    @property
+    def attributes(self):
+        all_params = super().attributes
+        other_params = {
+            'is_lazy': self.is_lazy
+        }
+        all_params.update(other_params)
+        return all_params
+
     @staticmethod
     def _build_data_list(hdf_file):
         """ hdf_file not used. But this is used by load, and the lazy version
@@ -314,6 +336,20 @@ class LazyMultiSubjectDataset(MultiSubjectDatasetAbstract):
         self.hdf_handle = None
         if self.cache_size > 0:
             self.volume_cache_manager = None
+
+        # This will accelerate verification of laziness, compared to
+        # is_instance(data, LazyMultiSubjectDataset)
+        self.is_lazy = True
+
+    @property
+    def attributes(self):
+        all_params = super().attributes
+        other_params = {
+            'cache_size': self.cache_size,
+            'is_lazy': self.is_lazy
+        }
+        all_params.update(other_params)
+        return all_params
 
     @staticmethod
     def _build_data_list(hdf_file):
@@ -382,3 +418,22 @@ class LazyMultiSubjectDataset(MultiSubjectDatasetAbstract):
     def __del__(self):
         if self.hdf_handle is not None:
             self.hdf_handle.close()
+
+
+def init_dataset(is_lazy: bool, hdf5_filename: str, subjs_set: str,
+                 name: str = None, taskman_managed: bool = None,
+                 cache_size: int = None, **unused_kwargs):
+    if is_lazy:
+        dataset = LazyMultiSubjectDataset(hdf5_filename, subjs_set, name,
+                                          taskman_managed, cache_size)
+    else:
+        dataset = MultiSubjectDataset(hdf5_filename, subjs_set, name,
+                                      taskman_managed)
+
+    with Timer("Loading dataset for {}".format(subjs_set), newline=True,
+               color='blue'):
+        dataset.load_data()
+
+    logging.debug("Unused kwargs are: {}".format(unused_kwargs))
+
+    return dataset

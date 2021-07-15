@@ -267,64 +267,61 @@ def check_seed(seed: int) -> int:
 
 # Main check function
 def check_all_experiment_parameters(conf: dict):
+    all_params = dict()
 
     # Preprocessing:
-    # step_size can be
-    step_size = check_step_size(
+    all_params['step_size'] = check_step_size(
         conf['preprocessing']['step_size'])
-    normalize_directions = check_normalize_directions(
+    all_params['normalize_directions'] = check_normalize_directions(
         conf['preprocessing']['normalize_directions'])
 
     # Data augmentation:
-    noise_size = check_noise_size(
+    all_params['noise_size'] = check_noise_size(
         conf['data_augmentation']['noise_size'])
-    noise_variability = check_noise_variability(
+    all_params['noise_variability'] = check_noise_variability(
         conf['data_augmentation']['noise_variability'])
-    split_ratio = check_split_ratio(
+    all_params['split_ratio'] = check_split_ratio(
         conf['data_augmentation']['split_ratio'])
-    reverse_ratio = check_reverse_ratio(
+    all_params['reverse_ratio'] = check_reverse_ratio(
         conf['data_augmentation']['reverse_ratio'])
 
     # Input:
-    neighborhood_type, neighborhood_radius = check_neighborhood(
+    all_params['neighborhood_type, neighborhood_radius'] = check_neighborhood(
         conf['input']['neighborhood']['sphere_radius'],
         conf['input']['neighborhood']['grid_radius'])
-    num_previous_dirs = check_previous_dir(
+    all_params['num_previous_dirs'] = check_previous_dir(
         conf['input']['num_previous_dirs'])
 
     # Epochs:
-    max_epochs = check_max_epochs(
+    all_params['max_epochs'] = check_max_epochs(
         conf['training']['epochs']['max_epochs'])
-    patience = check_patience(
+    all_params['patience'] = check_patience(
         conf['training']['epochs']['patience'])
-    batch_size = check_batch_size(
+    all_params['batch_size'] = check_batch_size(
         conf['training']['batch']['size'])
     n_subjects_per_batch = check_n_subjects_per_batch(
         conf['training']['batch']['n_subjects_per_batch'])
-    cycles = check_cycles(
+    all_params['n_subjects_per_batch'] = n_subjects_per_batch
+    all_params['cycles'] = check_cycles(
         conf['training']['batch']['cycles'], n_subjects_per_batch)
 
     # Memory:
     lazy = check_lazy(
         conf['memory']['lazy'])
-    cache_manager = check_cache_manager(
+    all_params['lazy'] = lazy
+    all_params['cache_manager'] = check_cache_manager(
         conf['memory']['cache_manager'], lazy)
-    avoid_cpu_computations = check_avoid_cpu_computations(
+    all_params['avoid_cpu_computations'] = check_avoid_cpu_computations(
         conf['memory']['avoid_cpu_computations'])
-    num_cpu_workers = check_num_cpu_workers(
+    all_params['num_cpu_workers'] = check_num_cpu_workers(
         conf['memory']['num_cpu_workers'])
-    worker_interpolation = check_worker_interpolation(
+    all_params['worker_interpolation'] = check_worker_interpolation(
         conf['memory']['worker_interpolation'])
-    taskman_managed = check_taskman_managed(
+    all_params['taskman_managed'] = check_taskman_managed(
         conf['memory']['taskman_managed'])
 
     # Randomization:
-    seed = check_seed(
+    all_params['seed'] = check_seed(
         conf['randomization']['seed'])
 
-    return (step_size, normalize_directions, noise_size, noise_variability,
-            split_ratio, reverse_ratio, neighborhood_type, neighborhood_radius,
-            num_previous_dirs, max_epochs, patience, batch_size,
-            n_subjects_per_batch, cycles, lazy, cache_manager,
-            avoid_cpu_computations, num_cpu_workers, worker_interpolation,
-            taskman_managed, seed)
+    return all_params
