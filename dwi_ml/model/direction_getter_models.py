@@ -688,7 +688,7 @@ class FisherVonMisesMixtureDirectionGetter(AbstractDirectionGetterModel):
         raise NotImplementedError
 
 
-KEY_TO_DIRECTION_GETTER_MODEL = \
+KEYS_TO_DIRECTION_GETTER_MODEL = \
     {'cosine-regression': CosineRegressionDirectionGetter,
      'l2-regression': L2RegressionDirectionGetter,
      'sphere-classification': SphereClassificationDirectionGetter,

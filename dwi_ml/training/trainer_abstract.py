@@ -15,7 +15,7 @@ from tqdm import tqdm
 from dwi_ml.experiment.monitoring import (
     EarlyStopping, EarlyStoppingError, IterTimer, ValueHistoryMonitor)
 from dwi_ml.model.batch_samplers import BatchSamplerAbstract
-from dwi_ml.model.models import ModelAbstract
+from dwi_ml.model.main_models import ModelAbstract
 
 # If the remaining time is less than one epoch + X seconds, we will quit
 # training now, to allow updating taskman_report.
@@ -336,17 +336,28 @@ class DWIMLTrainer:
                 raise EarlyStoppingError(
                     "Early stopping! Loss has not improved after {} epochs!\n"
                     "Best result: {}; At epoch #{}"
-                        .format(self.patience,
-                                self.early_stopping.best, self.best_epoch))
+                    .format(self.patience,
+                            self.early_stopping.best, self.best_epoch))
 
             # Check for current best
             if self.valid_loss_monitor.epochs_means_history[-1] < (
                     self.early_stopping.best + self.early_stopping.min_eps):
-                logging.info("Best epoch yet! Saving model.")
-                self.best_model_state = self.model.state_dict()
-                self.best_epoch = self.current_epoch
+                logging.info("Best epoch yet! Saving model and loss history.")
+                self.model.best_model_state = self.model.state_dict()
                 self.model.save()
 
+                # Save losses (i.e. mean over all batches)
+                self.best_epoch = self.current_epoch
+                losses = {
+                    'train_loss': self.train_loss_monitor.epochs_means_history[
+                        self.best_epoch],
+                    'valid_loss': self.early_stopping.best}
+                with open(os.path.join(self.experiment_dir, "losses.json"),
+                          'w') as json_file:
+                    json_file.write(
+                        json.dumps(losses, indent=4, separators=(',', ': ')))
+
+                # Save information online
                 if self.comet_exp:
                     self.comet_exp.log_metric("best_validation",
                                               self.early_stopping.best)
@@ -375,6 +386,7 @@ class DWIMLTrainer:
                     self.hangup_time - time.time()))
                 self._update_taskman_report({'resubmit': True})
                 exit(2)
+
         # Training is over, save checkpoint
         self.save_checkpoint()
 
@@ -415,7 +427,7 @@ class DWIMLTrainer:
         # Saving epoch's information
         self.train_loss_monitor.end_epoch()
         self._save_log_from_array(self.train_loss_monitor.epochs_means_history,
-                             "train_loss.npy")
+                                  "train_loss.npy")
         with train_context():
             if self.comet_exp:
                 self.comet_exp.log_metric(
@@ -427,9 +439,15 @@ class DWIMLTrainer:
 
     def _train_one_batch(self, batch_id, data, *args):
         """Training: running the model"""
-        mean_loss = self._compute_batch_loss(data, is_training=True)
+        logging.debug('Unused args in train: {}'.format(args))
+
+        # Running the model's forward + backwward prop + compute loss
+        mean_loss = self.model.run_model_and_compute_loss(
+            data, self.train_batch_sampler.avoid_cpu_computations,
+            is_training=True)
+
+        logging.debug("Updated loss: {}".format(mean_loss))
         self.train_loss_monitor.update(mean_loss)
-        logging.debug("Update loss: {}".format(mean_loss))
 
         # Update taskman every 10 updates
         if self.taskman_managed and batch_id % 10 == 0:
@@ -452,6 +470,7 @@ class DWIMLTrainer:
 
     def _validate_one_epoch(self, valid_dataloader, valid_context, epoch,
                             *args):
+        logging.debug('Unused args in validate: {}'.format(args))
 
         # Make sure there are no existing HDF handles if using parallel workers
         if (self.num_cpu_workers > 0 and
@@ -471,8 +490,10 @@ class DWIMLTrainer:
                     pbar.close()
                     break
 
-                # Validate this batch:
-                mean_loss = self._compute_batch_loss(data)
+                # Validate this batch: forward propagation + loss
+                mean_loss = self.model.run_model_and_compute_loss(
+                    data, self.valid_batch_sampler.avoid_cpu_computations,
+                    is_training=False)
                 self.valid_loss_monitor.update(mean_loss)
 
             # Explicitly delete iterator to kill threads and free memory before
@@ -482,7 +503,7 @@ class DWIMLTrainer:
         # Save this epoch's information
         self.valid_loss_monitor.end_epoch()
         self._save_log_from_array(self.valid_loss_monitor.epochs_means_history,
-                             "valid_loss.npy")
+                                  "valid_loss.npy")
         with valid_context():
             if self.comet_exp:
                 self.comet_exp.log_metric(
@@ -491,15 +512,6 @@ class DWIMLTrainer:
                     step=epoch)
         logging.info("Validation loss : {}"
                      .format(self.valid_loss_monitor.epochs_means_history[-1]))
-
-    def _compute_batch_loss(self, data, is_training: bool = False) -> float:
-        """Run a batch of data through the model and return the mean loss.
-
-        Hint: If your sampler was instantiated with avoid_cpu_computations,
-        you need to deal with your data accordingly here!
-        Use the sampler's self.load_batch_final_step method.
-        """
-        raise NotImplementedError
 
     @classmethod
     def init_from_checkpoint(cls, batch_sampler_training: BatchSamplerAbstract,
@@ -522,7 +534,6 @@ class DWIMLTrainer:
 
         # Set other objects
         experiment.best_epoch = checkpoint_state['best_epoch']
-        experiment.best_model_state = checkpoint_state['best_model_state']
         experiment.comet_key = checkpoint_state['comet_key']
         experiment.current_epoch = checkpoint_state['current_epoch'] + 1
         experiment.nb_train_batches_per_epoch = \
@@ -593,7 +604,6 @@ class DWIMLTrainer:
         # These are parameters that should be updated after instantiating cls.
         other_params = {
             'best_epoch': self.best_epoch,
-            'best_model_state': self.best_model_state,
             'comet_key': self.comet_key,
             'current_epoch': self.current_epoch,
             'nb_train_batches_per_epoch': self.nb_train_batches_per_epoch,

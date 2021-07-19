@@ -493,13 +493,17 @@ class BatchSamplerAbstract(Sampler):
         """Load and prepare data for a batch"""
         raise NotImplementedError
 
-    def compute_feature_sizes(self):
+    @property
+    def feature_sizes(self):
         """
         Depending on data augmentation and eventually on input information,
         compute features sizes to help prepare an eventual model
         """
         """
         Philippe:
+                if self.input_size is None:
+            self.load_dataset()
+            
         expected_input_size = self.train_dataset.tractodata_manager.feature_size
         if self.add_neighborhood:
             expected_input_size += 26 * self.train_dataset.tractodata_manager.feature_size
@@ -662,7 +666,8 @@ class BatchSequencesSampler(BatchSamplerAbstract):
                                           enforce_sorted=False)
         return packed_directions
 
-    def compute_feature_sizes(self):
+    @property
+    def feature_sizes(self):
         raise NotImplementedError
 
 
@@ -757,11 +762,10 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
 
         With self.avoid_cpu_computations options: directions are not computed,
         and interpolation is not done. If you want to compute them later, use
-        >> self.compute_and_normalize_directions(batch_streamlines,
-                                                final_streamline_ids_per_subj)
-        >> self.compute_interpolation(batch_streamlines,
-                                      streamline_ids_per_subj,
-                                      packed_directions)
+        >> packed_directions = sampler.compute_and_normalize_directions(
+               batch_streamlines, final_streamline_ids_per_subj)
+        >> packed_inputs = sampler.compute_interpolation(batch_streamlines,
+               streamline_ids_per_subj, packed_directions)
 
         Parameters
         ----------
@@ -788,9 +792,7 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
             # Note that this is the same as using data_preparation_cpu_step
             return super().load_batch(streamline_ids_per_subj)
         else:
-            # We do the two steps separately here. Using
-            # data_preparation_cpu_step instead of super().load_batch because
-            # we need the unpacked batch_streamlines too.
+
             batch_streamlines, streamline_ids_per_subj = \
                 self.streamlines_data_augmentation(streamline_ids_per_subj)
 
@@ -919,5 +921,6 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
 
             return packed_inputs
 
-    def compute_feature_sizes(self):
+    @property
+    def feature_sizes(self):
         raise NotImplementedError

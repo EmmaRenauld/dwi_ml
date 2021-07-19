@@ -35,7 +35,7 @@ from dwi_ml.data.dataset.multi_subject_containers import init_dataset
 from dwi_ml.model.batch_samplers import (
     BatchSequencesSamplerOneInputVolume as ChosenBatchSampler)
 # Implement this:
-from dwi_ml.model.models import init_model
+from dwi_ml.model.main_models import ModelAbstract
 
 
 def parse_args():
@@ -125,12 +125,12 @@ def main():
 
         # Instantiate model
         # Remember that you have training_batch_sampler.compute_feature_sizes()
-        model = init_model()
+        model = ModelAbstract()
 
         # Instantiate trainer
         experiment = DWIMLTrainer.init_from_checkpoint(
             training_batch_sampler, validation_batch_sampler, model,
-            checkpoint_state)
+            **checkpoint_state)
     else:
         # Perform checks
         # We have decided to use yaml for a more rigorous way to store
@@ -153,7 +153,7 @@ def main():
 
         # Instantiate model
         # Remember that you have training_batch_sampler.compute_feature_sizes()
-        model = init_model(**all_params)
+        model = ModelAbstract()
 
         # Instantiate trainer
         experiment = DWIMLTrainer(
