@@ -93,6 +93,9 @@ class DWIMLTrainer:
              Optional. Send your experiment to a specific comet.ml project.
              Otherwise will be sent to Uncategorized Experiments.
         """
+        # To developpers: do not forget that changes here must be reflected
+        # in the save_checkpoint method!
+
         # Experiment
         if not os.path.isdir(experiment_path):
             raise NotADirectoryError("The experiment path does not exist! "
@@ -239,7 +242,7 @@ class DWIMLTrainer:
             self.comet_exp = None
             self.comet_key = None
 
-    def init_nb_batch_per_epoch(self):
+    def _init_nb_batch_per_epoch(self):
         """
         Please override in your child class if you have a better way to
         define the epochs sizes.
@@ -253,20 +256,23 @@ class DWIMLTrainer:
         """
         Train + validates the model
 
-        Will loop on epochs, using comet experiment to follow evolution
-        (loop starts at current epoch if experiment is resuming). For each
-        epoch, both training and validation are done.
+        - Starts comet,
+        - Creates DataLoaders from the BatchSamplers,
+        - For each epoch
+            - uses _train_one_epoch and _validate_one_epoch,
+            - checks for earlyStopping if the loss is bad,
+            - saves the model if the loss is good.
+        - Checks if allowed training time is exceeded.
 
         Parameters
         ----------
-        All *args will be passed all the way to train_one_epoch and
-        train_one_batch, in case you want to overwrite them and have this
-        train() method call them correctly.
+        All *args will be passed all the way to _train_one_epoch and
+        _train_one_batch, in case you want to override them.
         """
         # If data comes from checkpoint, this is already computed
         if self.nb_train_batches_per_epoch is None:
             (self.nb_train_batches_per_epoch,
-             self.nb_valid_batches_per_epoch) = self.init_nb_batch_per_epoch()
+             self.nb_valid_batches_per_epoch) = self._init_nb_batch_per_epoch()
 
         logging.info("Experiment attributes : \n{}".format(
             json.dumps(self.attributes, indent=4, sort_keys=True,
@@ -393,15 +399,15 @@ class DWIMLTrainer:
                   total=self.nb_train_batches_per_epoch) as pbar:
             train_iterator = enumerate(pbar)
             with train_context():
-                for step, data in train_iterator:
+                for batch_id, data in train_iterator:
                     # Break if maximum number of epochs has been reached
-                    if step == self.nb_train_batches_per_epoch:
+                    if batch_id == self.nb_train_batches_per_epoch:
                         # Explicitly close tqdm's progress bar to fix possible
                         # bugs when breaking the loop
                         pbar.close()
                         break
 
-                    self._train_one_batch(step, data, *args)
+                    self._train_one_batch(batch_id, data, *args)
             # Explicitly delete iterator to kill threads and free memory before
             # running validation
             del train_iterator
@@ -419,14 +425,14 @@ class DWIMLTrainer:
         logging.info("Mean training loss : {}"
                      .format(self.train_loss_monitor.epochs_means_history[-1]))
 
-    def _train_one_batch(self, step, data, *args):
+    def _train_one_batch(self, batch_id, data, *args):
         """Training: running the model"""
-        mean_loss = self.compute_batch_loss(data, is_training=True)
+        mean_loss = self._compute_batch_loss(data, is_training=True)
         self.train_loss_monitor.update(mean_loss)
         logging.debug("Update loss: {}".format(mean_loss))
 
         # Update taskman every 10 updates
-        if self.taskman_managed and step % 10 == 0:
+        if self.taskman_managed and batch_id % 10 == 0:
             th = self.train_loss_monitor.epochs_means_history
             vh = self.valid_loss_monitor.epochs_means_history
             updates = {
@@ -435,14 +441,14 @@ class DWIMLTrainer:
                 'epoch': self.current_epoch,
                 'best_epoch': self.best_epoch,
                 'best_loss': self.early_stopping.best,
-                'update': step,
+                'update': batch_id,
                 'update_loss': mean_loss
             }
             self._update_taskman_report(updates)
 
         # Update Comet every 10 updates
-        if self.comet_exp and step % 10 == 0:
-            self.comet_exp.log_metric("loss_step", mean_loss, step=step)
+        if self.comet_exp and batch_id % 10 == 0:
+            self.comet_exp.log_metric("loss_step", mean_loss, step=batch_id)
 
     def _validate_one_epoch(self, valid_dataloader, valid_context, epoch,
                             *args):
@@ -466,7 +472,7 @@ class DWIMLTrainer:
                     break
 
                 # Validate this batch:
-                mean_loss = self.compute_batch_loss(data)
+                mean_loss = self._compute_batch_loss(data)
                 self.valid_loss_monitor.update(mean_loss)
 
             # Explicitly delete iterator to kill threads and free memory before
@@ -486,8 +492,13 @@ class DWIMLTrainer:
         logging.info("Validation loss : {}"
                      .format(self.valid_loss_monitor.epochs_means_history[-1]))
 
-    def compute_batch_loss(self, data, is_training: bool = False) -> float:
-        """Run a batch of data through the model and return the mean loss."""
+    def _compute_batch_loss(self, data, is_training: bool = False) -> float:
+        """Run a batch of data through the model and return the mean loss.
+
+        Hint: If your sampler was instantiated with avoid_cpu_computations,
+        you need to deal with your data accordingly here!
+        Use the sampler's self.load_batch_final_step method.
+        """
         raise NotImplementedError
 
     @classmethod

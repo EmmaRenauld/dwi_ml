@@ -18,7 +18,6 @@ import logging
 import os
 from os import path
 
-import torch
 import yaml
 
 from dwi_ml.experiment.monitoring import EarlyStoppingError
@@ -34,7 +33,7 @@ from dwi_ml.data.dataset.multi_subject_containers import init_dataset
 # Change this init_batch_sampler if you prefer!
 # This is one possibility, others could be implemented.
 from dwi_ml.model.batch_samplers import (
-    init_sequences_one_input_batch_sampler as init_batch_sampler)
+    BatchSequencesSamplerOneInputVolume as ChosenBatchSampler)
 # Implement this:
 from dwi_ml.model.models import init_model
 
@@ -117,10 +116,10 @@ def main():
             init_dataset(**checkpoint_state['valid_data_params'])
 
         # Instantiate batch sampler classes
-        training_batch_sampler = init_batch_sampler(
+        training_batch_sampler = ChosenBatchSampler(
             training_dataset,
             **checkpoint_state['train_sampler_params'])
-        validation_batch_sampler = init_batch_sampler(
+        validation_batch_sampler = ChosenBatchSampler(
             validation_dataset,
             **checkpoint_state['valid_sampler_params'])
 
@@ -147,9 +146,9 @@ def main():
         validation_dataset = init_dataset(**data_params)
 
         # Instantiate batch sampler classes
-        training_batch_sampler = init_batch_sampler(training_dataset,
+        training_batch_sampler = ChosenBatchSampler(training_dataset,
                                                     **all_params)
-        validation_batch_sampler = init_batch_sampler(validation_dataset,
+        validation_batch_sampler = ChosenBatchSampler(validation_dataset,
                                                       **all_params)
 
         # Instantiate model

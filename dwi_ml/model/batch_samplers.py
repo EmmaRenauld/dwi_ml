@@ -61,6 +61,9 @@ from dwi_ml.data.processing.volume.interpolation import (
 # evaluate if the batch_size has been reached. No need to sample only one
 # streamline at the time!
 CHUNK_SIZE = 256
+# Debugging purposes: save a binary mask of underlying voxels after
+# interpolation
+SAVE_BATCH_INPUT_MASK = False
 
 
 def prepare_neighborhood_information(neighborhood_type,
@@ -116,7 +119,7 @@ class BatchSamplerAbstract(Sampler):
                  noise_gaussian_size: float = 0.,
                  noise_gaussian_variability: float = 0.,
                  reverse_streamlines_ratio: float = 0.5,
-                 avoid_cpu_computations: bool = None):
+                 avoid_cpu_computations: bool = None, **kwargs):
         """
         Parameters
         ----------
@@ -197,6 +200,8 @@ class BatchSamplerAbstract(Sampler):
             coordinates, computing input interpolation, etc.
         """
         super().__init__(data_source)  # This does nothing but python likes it.
+
+        logging.debug('BatchSamplerAbstract unused kwargs: {}'.format(kwargs))
 
         # Checking that batch_size is correct
         if (not isinstance(batch_size, int) or isinstance(batch_size, bool)
@@ -484,7 +489,8 @@ class BatchSamplerAbstract(Sampler):
             sft = reverse_streamlines(sft, reverse_ids)
         return sft
 
-    def load_batch(self, *args):
+    def load_batch(self, batch_ids_per_subj: Dict[int, list]):
+        """Load and prepare data for a batch"""
         raise NotImplementedError
 
     def compute_feature_sizes(self):
@@ -525,7 +531,7 @@ class BatchSequencesSampler(BatchSamplerAbstract):
                  noise_gaussian_variability: float = 0.,
                  reverse_streamlines_ratio: float = 0.5,
                  avoid_cpu_computations: bool = None,
-                 normalize_directions: bool = True):
+                 normalize_directions: bool = True, **kwargs):
         """
         Additional parameters compared to super:
         normalize_directions: bool
@@ -543,6 +549,9 @@ class BatchSequencesSampler(BatchSamplerAbstract):
                          reverse_streamlines_ratio,
                          avoid_cpu_computations)
         self.normalize_directions = normalize_directions
+
+        logging.debug('BatchSequencesSampler unused kwargs: {}'.format(kwargs))
+
 
     @property
     def hyperparameters(self):
@@ -566,8 +575,25 @@ class BatchSequencesSampler(BatchSamplerAbstract):
         ----------
         streamline_ids_per_subj: dict[int, list]
             The list of streamline ids for each subject (relative ids inside
-            each subject's tractogram).
+            each subject's tractogram) for this batch.
+
+        Returns
+        -------
+        If self.avoid_cpu_computations:
+            (batch_streamlines, final_streamline_ids_per_sub)
+        Else:
+            packed_directions
         """
+        (batch_streamlines,
+         final_streamline_ids_per_subj) = self.streamlines_data_augmentation(
+            streamline_ids_per_subj)
+        if self.avoid_cpu_computations:
+            return batch_streamlines
+        else:
+            return self.compute_and_normalize_directions(batch_streamlines)
+
+    def streamlines_data_augmentation(self,
+                                      streamline_ids_per_subj: Dict[int, list]):
         batch_streamlines = []
 
         # The batch's streamline ids will change throughout processing because
@@ -609,15 +635,18 @@ class BatchSequencesSampler(BatchSamplerAbstract):
             sft.to_vox()
             batch_streamlines.extend(sft.streamlines)
 
-        if self.avoid_cpu_computations:
             return batch_streamlines, final_streamline_ids_per_subj
-        else:
-            packed_directions = \
-                self.compute_and_normalize_directions(batch_streamlines)
-            return (batch_streamlines, final_streamline_ids_per_subj,
-                    packed_directions)
 
     def compute_and_normalize_directions(self, batch_streamlines):
+        """
+        Computations that can be computed either right when loading batch with
+        self.load_batch() if avoid_cpu_computations is false, or later when
+        GPU is used if avoid_cpu_computations is true.
+
+        For this sampler, separable computations are:
+            - Computing the directions from streamlines coordinates
+            - Normalization of the directions.
+        """
         # Getting directions
         batch_directions = [torch.as_tensor(s[1:] - s[:-1],
                                             dtype=torch.float32,
@@ -675,7 +704,8 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                  noise_gaussian_variability: float = 0.,
                  reverse_streamlines_ratio: float = 0.5,
                  avoid_cpu_computations: bool = None,
-                 normalize_directions: bool = True, nb_previous_dirs: int = 0):
+                 normalize_directions: bool = True, nb_previous_dirs: int = 0,
+                 **kwargs):
         """
         Additional parameters compared to super:
 
@@ -702,6 +732,9 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
 
         self.nb_previous_dirs = nb_previous_dirs
 
+        logging.debug('BatchSequencesSamplerOneInputVolume unused kwargs: {}'
+                      .format(kwargs))
+
     @property
     def hyperparameters(self):
         hyperparameters = super().hyperparameters
@@ -714,8 +747,7 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
         attributes.update({'input_group_name': self.input_group_name})
         return attributes
 
-    def load_batch(self, streamline_ids_per_subj: Dict[int, list],
-                   save_batch_input_masks: bool = None):
+    def load_batch(self, streamline_ids_per_subj: Dict[int, list]):
         """
         Fetches the chosen streamlines + underlying inputs for all subjects in
         batch. Pocesses data augmentation. Add previous_direction to the input.
@@ -725,18 +757,17 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
 
         With self.avoid_cpu_computations options: directions are not computed,
         and interpolation is not done. If you want to compute them later, use
-        >> self.compute_and_normalize_directions(self, batch_streamlines)
-        >> self.compute_interpolation().
+        >> self.compute_and_normalize_directions(batch_streamlines,
+                                                final_streamline_ids_per_subj)
+        >> self.compute_interpolation(batch_streamlines,
+                                      streamline_ids_per_subj,
+                                      packed_directions)
 
         Parameters
         ----------
         streamline_ids_per_subj: dict[int, list]
             The list of streamline ids for each subject (relative ids inside
             each subject's tractogram).
-        save_batch_input_masks: bool
-            If True, save a mask of voxels touched by streamlines per subject.
-            For debugging purposes. (Only used when doing the cpu computations.
-            Then, returns (batch_streamlines, batch_input_masks)).
 
         Returns
         -------
@@ -752,38 +783,31 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
             packed_directions : PackedSequence
                 Streamline directions.
         """
-
         if self.avoid_cpu_computations:
             # Only returning the streamlines for now.
+            # Note that this is the same as using data_preparation_cpu_step
             return super().load_batch(streamline_ids_per_subj)
         else:
-            batch_streamlines, streamline_ids_per_subj, packed_directions = \
-                super().load_batch(streamline_ids_per_subj)
+            # We do the two steps separately here. Using
+            # data_preparation_cpu_step instead of super().load_batch because
+            # we need the unpacked batch_streamlines too.
+            batch_streamlines, streamline_ids_per_subj = \
+                self.streamlines_data_augmentation(streamline_ids_per_subj)
 
-            # Get the batch input volume
-            # (i.e. volume's neighborhood under each point of the streamline)
-            batch_x = self.compute_interpolation(batch_streamlines,
-                                                 streamline_ids_per_subj,
-                                                 packed_directions,
-                                                 save_batch_input_masks)
-            if save_batch_input_masks:
-                # Debugging purposes. Returned batch_x contains input_masks.
-                # Retrieving. For now, batch_x is not important and not
-                # returned. Note that mask is easier to analyse with only one
-                # subject because then, all the batch_streamlines should fit
-                # with the same input_mask.
-                batch_x, batch_input_masks = batch_x
-                return batch_streamlines, batch_input_masks
-            else:
-                # Packing data.
-                packed_inputs = pack_sequence(batch_x, enforce_sorted=False)
+            # Get the packed directions from super
+            packed_directions = super().compute_and_normalize_directions(
+                batch_streamlines)
 
-                return packed_inputs, packed_directions
+            # Get the packed inputs
+            packed_inputs = self.compute_interpolation(batch_streamlines,
+                                                       streamline_ids_per_subj,
+                                                       packed_directions)
+
+            return packed_inputs, packed_directions
 
     def compute_interpolation(self, batch_streamlines: List[np.ndarray],
-                              streamline_ids_per_subj: Dict[int, slice],
-                              batch_directions,
-                              save_batch_input_mask: bool = None):
+                               streamline_ids_per_subj: Dict[int, slice],
+                               batch_directions):
         """
         Get the DWI (depending on volume: as raw, SH, fODF, etc.) volume for
         each point in each streamline (+ depending on options: neighborhood,
@@ -851,7 +875,7 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                                 'input. Some streamlines were probably '
                                 'outside the mask.')
 
-            if save_batch_input_mask:
+            if SAVE_BATCH_INPUT_MASK:
                 input_mask = torch.tensor(np.zeros(data_volume.shape[0:3]))
                 for s in range(len(coords_torch)):
                     input_mask.data[tuple(coords_clipped[s, :])] = 1
@@ -871,7 +895,9 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
             for i in range(self.nb_previous_dirs):
                 raise NotImplementedError("Emma: I added the loop but I don't "
                                           "know where to put i inside the loop."
-                                          "To test.")
+                                          "To test. Can we get them from the "
+                                          "packed_directions? Else we will need"
+                                          "to return the unpacked directions from compute_and_normalize_directions")
                 previous_dirs = [torch.cat((torch.zeros((1, 3),
                                                         dtype=torch.float32,
                                                         device=self.device),
@@ -880,34 +906,18 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                 batch_x_data = [torch.cat((s, p), dim=1)
                                 for s, p in zip(batch_x_data, previous_dirs)]
 
-        if save_batch_input_mask:
-            return batch_x_data, batch_input_masks
+        if SAVE_BATCH_INPUT_MASK:
+            # Debugging purposes. Returned batch_x contains input_masks.
+            # Retrieving. For now, batch_x is not important and not
+            # returned. Note that mask is easier to analyse with only one
+            # subject because then, all the batch_streamlines should fit
+            # with the same input_mask.
+            return batch_streamlines, batch_input_masks
         else:
-            return batch_x_data
+            # Packing data.
+            packed_inputs = pack_sequence(batch_x_data, enforce_sorted=False)
+
+            return packed_inputs
 
     def compute_feature_sizes(self):
         raise NotImplementedError
-
-
-def init_sequences_one_input_batch_sampler(
-        dataset, batch_size, rng_seed, max_n_subjects, cycles, step_size,
-        neighborhood_type, neighborhood_radius, split_ratio, noise_size,
-        noise_variability, reverse_ratio, avoid_cpu, normalize_directions,
-        num_previous_dirs, **unused_kwargs):
-
-    sampler = BatchSequencesSamplerOneInputVolume(
-        dataset, streamline_group_name='streamlines', input_group_name='input',
-        batch_size=batch_size, rng=rng_seed,
-        n_subjects_per_batch=max_n_subjects, cycles=cycles,
-        step_size=step_size, neighborhood_type=neighborhood_type,
-        neighborhood_radius_vox=neighborhood_radius,
-        split_streamlines_ratio=split_ratio, noise_gaussian_size=noise_size,
-        noise_gaussian_variability=noise_variability,
-        reverse_streamlines_ratio=reverse_ratio,
-        avoid_cpu_computations=avoid_cpu,
-        normalize_directions=normalize_directions,
-        nb_previous_dirs=num_previous_dirs)
-
-    logging.debug("Unused kwargs are: {}".format(unused_kwargs))
-
-    return sampler

@@ -24,6 +24,9 @@ class ModelAbstract(torch.nn.module):
     def save(self):
         raise NotImplementedError
 
+    def train(self):
+        raise NotImplementedError
+
 
 def init_model(**unused_kwargs) -> ModelAbstract:
     """
