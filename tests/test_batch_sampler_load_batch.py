@@ -64,7 +64,7 @@ def test_batch_loading_no_computations(
         print('Batch # 1 streamline #1: {}'.format(batch[0][0]))
         break
 
-    batch_streamlines, batch_ids = batch_sampler.load_batch(batch)
+    batch_streamlines, _ = batch_sampler.load_batch(batch)
 
     print('Nb loaded processed batch streamlines: {}. Streamline 1: {}'
           .format(len(batch_streamlines), batch_streamlines[0][0]))
@@ -104,28 +104,38 @@ def test_batch_loading_computations(fake_dataset, batch_size, step_size,
     for batch in batch_generator:
         print('Batch # 1: nb sampled streamlines subj 0 was {}'
               .format(len(batch[0])))
-        print('Batch # 1 streamline #1: {}'.format(batch[0][0]))
+        print("Batch # 1 streamline #1's id: {}".format(batch[0][0]))
         break
 
-    batch_streamlines, batch_input_masks = batch_sampler.load_batch(
-        batch, save_batch_input_masks=True)
+    # Open model.batch_samplers and change SAVE_BATCH_INPUT_MASK to True.
+    packed_inputs, packed_directions = batch_sampler.load_batch(batch)
 
-    print('Nb loaded processed batch streamlines: {}. Streamline 1: {}'
-          .format(len(batch_streamlines), batch_streamlines[0][0]))
+    SAVE_BATCH_INPUT_MASK = True
+    if SAVE_BATCH_INPUT_MASK:
+        # debugging mode.
+        # packed_input was not really returned. Instead, returned
+        # batch_streamlines and mask
+        batch_streamlines, batch_input_masks = packed_inputs
 
-    millisecond = round(now.microsecond / 10000)
-    now_s = str(now.minute * 10000 + now.second * 100 + millisecond)
+        print('Nb loaded processed batch streamlines: {}. Streamline 1: {}'
+              .format(len(batch_streamlines), batch_streamlines[0][0]))
 
-    print("Saving subj 0's tractogram {}".format('test_batch1_' + now_s))
-    sft = StatefulTractogram(batch_streamlines, ref, space=Space.VOX)
-    save_tractogram(sft, saving_path + '/test_batch1_' + now_s + '.trk')
+        millisecond = round(now.microsecond / 10000)
+        now_s = str(now.minute * 10000 + now.second * 100 + millisecond)
 
-    print("Saving subj 0's underlying coords mask: {}"
-          .format('test_batch1_underlying_mask_' + now_s))
-    mask = batch_input_masks[0]
-    data_nii = nib.Nifti1Image(np.asarray(mask, dtype=bool), affine, header)
-    nib.save(data_nii, saving_path + '/test_batch1_underlying_mask_' + now_s +
-             '.nii.gz')
+        print("Saving subj 0's tractogram {}".format('test_batch1_' + now_s))
+        sft = StatefulTractogram(batch_streamlines, ref, space=Space.VOX)
+        save_tractogram(sft, saving_path + '/test_batch1_' + now_s + '.trk')
+
+        print("Saving subj 0's underlying coords mask: {}"
+              .format('test_batch1_underlying_mask_' + now_s))
+        mask = batch_input_masks[0]
+        data_nii = nib.Nifti1Image(np.asarray(mask, dtype=bool), affine, header)
+        nib.save(data_nii, saving_path + '/test_batch1_underlying_mask_' +
+                 now_s + '.nii.gz')
+    else:
+        print("Packed inputs data size: {}, \npacked directions data size: {}"
+              .format(packed_inputs.data.shape, packed_directions.data.size))
 
 
 def test_non_lazy(ref, affine, header, saving_path):
@@ -134,7 +144,7 @@ def test_non_lazy(ref, affine, header, saving_path):
     # Initialize dataset
     print('Initializing dataset...')
     logging.root.setLevel('INFO')
-    fake_dataset = MultiSubjectDataset(args.hdf5_filename)
+    fake_dataset = MultiSubjectDataset(args.hdf5_filename, 'training_subjs')
     fake_dataset.load_data()
 
     print('\n\n\n=======================Test with batch size 10000 + resample')
@@ -178,7 +188,8 @@ def test_lazy(ref, affine, header, saving_path):
     # Initialize dataset
     print('Initializing dataset...')
     logging.root.setLevel('INFO')
-    fake_dataset = LazyMultiSubjectDataset(args.hdf5_filename)
+    fake_dataset = LazyMultiSubjectDataset(args.hdf5_filename,
+                                           'training_subjs')
     fake_dataset.load_data()
 
     print('\n\n\n=======================Test with batch size 10000 + resample')

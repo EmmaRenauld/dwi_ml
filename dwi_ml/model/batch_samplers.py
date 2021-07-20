@@ -592,9 +592,11 @@ class BatchSequencesSampler(BatchSamplerAbstract):
          final_streamline_ids_per_subj) = self.streamlines_data_augmentation(
             streamline_ids_per_subj)
         if self.avoid_cpu_computations:
-            return batch_streamlines
+            return batch_streamlines, final_streamline_ids_per_subj
         else:
-            return self.compute_and_normalize_directions(batch_streamlines)
+            packed_directions, _ = self.compute_and_normalize_directions(
+                batch_streamlines)
+            return packed_directions
 
     def streamlines_data_augmentation(self,
                                       streamline_ids_per_subj: Dict[int, list]):
@@ -664,7 +666,7 @@ class BatchSequencesSampler(BatchSamplerAbstract):
                                 for s in batch_directions]
         packed_directions = pack_sequence(batch_directions,
                                           enforce_sorted=False)
-        return packed_directions
+        return packed_directions, batch_directions
 
     @property
     def feature_sizes(self):
@@ -797,13 +799,14 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                 self.streamlines_data_augmentation(streamline_ids_per_subj)
 
             # Get the packed directions from super
-            packed_directions = super().compute_and_normalize_directions(
+            (packed_directions,
+             batch_directions) = super().compute_and_normalize_directions(
                 batch_streamlines)
 
             # Get the packed inputs
             packed_inputs = self.compute_interpolation(batch_streamlines,
                                                        streamline_ids_per_subj,
-                                                       packed_directions)
+                                                       batch_directions)
 
             return packed_inputs, packed_directions
 
@@ -878,6 +881,7 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                                 'outside the mask.')
 
             if SAVE_BATCH_INPUT_MASK:
+                logging.debug("DEBUGGING MODE. Creating underlying mask.")
                 input_mask = torch.tensor(np.zeros(data_volume.shape[0:3]))
                 for s in range(len(coords_torch)):
                     input_mask.data[tuple(coords_clipped[s, :])] = 1
@@ -894,19 +898,15 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
         # Add previous directions to input
         # Using a for loop but
         if self.nb_previous_dirs > 0:
+            empty_coord = torch.zeros((1, 3), dtype=torch.float32,
+                                       device=self.device)
             for i in range(self.nb_previous_dirs):
-                raise NotImplementedError("Emma: I added the loop but I don't "
-                                          "know where to put i inside the loop."
-                                          "To test. Can we get them from the "
-                                          "packed_directions? Else we will need"
-                                          "to return the unpacked directions from compute_and_normalize_directions")
-                previous_dirs = [torch.cat((torch.zeros((1, 3),
-                                                        dtype=torch.float32,
-                                                        device=self.device),
-                                            d[:-1]))
-                                 for d in batch_directions]
+                ith_previous_dirs = \
+                    [torch.cat((empty_coord.repeat(i + 1, 1), s[:-(i + 1)]))
+                     for s in batch_directions]
                 batch_x_data = [torch.cat((s, p), dim=1)
-                                for s, p in zip(batch_x_data, previous_dirs)]
+                                for s, p in zip(batch_x_data,
+                                                ith_previous_dirs)]
 
         if SAVE_BATCH_INPUT_MASK:
             # Debugging purposes. Returned batch_x contains input_masks.
@@ -914,6 +914,8 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
             # returned. Note that mask is easier to analyse with only one
             # subject because then, all the batch_streamlines should fit
             # with the same input_mask.
+            logging.debug("DEBUGGING MODE. Not returning packed inputs. "
+                          "Returning batch_streamlines and mask instead.")
             return batch_streamlines, batch_input_masks
         else:
             # Packing data.

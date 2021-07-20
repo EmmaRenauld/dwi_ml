@@ -63,7 +63,7 @@ def test_non_lazy():
 
     # Initialize dataset
     print('Initializing dataset...')
-    fake_dataset = MultiSubjectDataset(args.hdf5_filename)
+    fake_dataset = MultiSubjectDataset(args.hdf5_filename, 'training_subjs')
     fake_dataset.load_data()
 
     print('=============================Test with batch size 1000')
@@ -80,7 +80,7 @@ def test_lazy():
 
     # Initialize dataset
     print('Initializing dataset...')
-    fake_dataset = LazyMultiSubjectDataset(args.hdf5_filename)
+    fake_dataset = LazyMultiSubjectDataset(args.hdf5_filename, 'training_subjs')
     fake_dataset.load_data()
 
     print('=============================Test with batch size 1000')

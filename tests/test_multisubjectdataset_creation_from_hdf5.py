@@ -26,7 +26,7 @@ def parse_args():
 
 def test_non_lazy():
     print("**========= NON-LAZY =========")
-    fake_dataset = MultiSubjectDataset(args.hdf5_filename)
+    fake_dataset = MultiSubjectDataset(args.hdf5_filename, 'training_subjs')
     fake_dataset.load_data()
     print("**Created a MultiSubjectDataset and loaded training set. "
           "Testing properties : \n\n")
@@ -62,7 +62,8 @@ def test_non_lazy():
 
 def test_lazy():
     print("**========= LAZY =========")
-    fake_dataset = LazyMultiSubjectDataset(args.hdf5_filename)
+    fake_dataset = LazyMultiSubjectDataset(args.hdf5_filename,
+                                           'training_subjs')
     fake_dataset.load_data()
     print("**Created a LazyMultiSubjectDataset and loaded training set. "
           "Testing properties : \n\n")
