@@ -62,6 +62,10 @@ test_tractograms_path="$database_folder/dwi_ml_ready/ismrm2015_noArtefact"
 tests/test_multisubjectdataset_creation_from_hdf5.py $hdf5_filename
 tests/test_batch_sampler_iter.py $hdf5_filename
 
-# Open model.batch_samplers and change SAVE_BATCH_INPUT_MASK to True for
-# debugging mode.
+# Open model.batch_samplers and change SAVE_BATCH_INPUT_MASK to True in both
+# batch sampler and test file to save input masks. Run as is to see output
+# shapes
 tests/test_batch_sampler_load_batch.py $hdf5_filename $ref $test_tractograms_path
+
+# check results and then:
+rm $database_folder/dwi_ml_ready/ismrm2015_noArtefact/test_batch1*

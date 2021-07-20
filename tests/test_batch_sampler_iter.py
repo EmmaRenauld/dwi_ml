@@ -47,7 +47,6 @@ def test_sampler(fake_dataset, batch_size, step_size):
 
     # Loop on batches
     i = 0
-    batch = []
     total_sampled_ids_sub0 = []
     for batch in batch_generator:
         print('Batch # {}: nb sampled streamlines subj 0 was {}'

@@ -15,6 +15,13 @@ from dwi_ml.data.dataset.multi_subject_containers import (
     LazyMultiSubjectDataset, MultiSubjectDataset)
 from dwi_ml.model.batch_samplers import (BatchSequencesSamplerOneInputVolume)
 
+"""
+To save binary maps of the input voxels, open model.batch_samplers and change
+SAVE_BATCH_INPUT_MASK=True 
+in both this file and the batch sampler
+"""
+SAVE_BATCH_INPUT_MASK = False
+
 
 def parse_args():
     """
@@ -95,7 +102,8 @@ def test_batch_loading_computations(fake_dataset, batch_size, step_size,
         fake_dataset, 'streamlines', 'input', batch_size, rng_seed,
         step_size=step_size, avoid_cpu_computations=False,
         neighborhood_type=neighborhood_type,
-        neighborhood_radius_vox=neighborhood_radius)
+        neighborhood_radius_vox=neighborhood_radius,
+        nb_previous_dirs=2)
 
     batch_generator = batch_sampler.__iter__()
 
@@ -107,15 +115,13 @@ def test_batch_loading_computations(fake_dataset, batch_size, step_size,
         print("Batch # 1 streamline #1's id: {}".format(batch[0][0]))
         break
 
-    # Open model.batch_samplers and change SAVE_BATCH_INPUT_MASK to True.
-    packed_inputs, packed_directions = batch_sampler.load_batch(batch)
+    inputs, directions, previous_dirs = batch_sampler.load_batch(batch)
 
-    SAVE_BATCH_INPUT_MASK = True
     if SAVE_BATCH_INPUT_MASK:
         # debugging mode.
         # packed_input was not really returned. Instead, returned
         # batch_streamlines and mask
-        batch_streamlines, batch_input_masks = packed_inputs
+        batch_streamlines, batch_input_masks = inputs
 
         print('Nb loaded processed batch streamlines: {}. Streamline 1: {}'
               .format(len(batch_streamlines), batch_streamlines[0][0]))
@@ -134,8 +140,12 @@ def test_batch_loading_computations(fake_dataset, batch_size, step_size,
         nib.save(data_nii, saving_path + '/test_batch1_underlying_mask_' +
                  now_s + '.nii.gz')
     else:
-        print("Packed inputs data size: {}, \npacked directions data size: {}"
-              .format(packed_inputs.data.shape, packed_directions.data.size))
+        print("Nb of inputs: {}. Ex of inputs shape: {}, \n"
+              "Nb of directions: {}. Ex of direction shape: {}\n"
+              "Previous_dirs: {}. Ex of shape (should be x6): {}"
+              .format(len(inputs), inputs[0].shape,
+                      len(directions), directions[0].shape,
+                      len(previous_dirs), previous_dirs[0].shape))
 
 
 def test_non_lazy(ref, affine, header, saving_path):

@@ -44,7 +44,6 @@ import numpy as np
 from scilpy.tracking.tools import resample_streamlines_step_size
 import torch
 import torch.multiprocessing
-from torch.nn.utils.rnn import pack_sequence
 from torch.utils.data import Sampler
 
 from dwi_ml.data.dataset.multi_subject_containers import (
@@ -64,6 +63,14 @@ CHUNK_SIZE = 256
 # Debugging purposes: save a binary mask of underlying voxels after
 # interpolation
 SAVE_BATCH_INPUT_MASK = False
+
+"""
+Currently, the __iter__ from the BatchSamplerAbstract samples complete
+streamline ids, not just points. The MultiSubjectData would have to be
+modified to find only some timesteps from a given streamline. But it is
+probably easier to sample all points from each sampled streamline, and then
+use them separatedly.
+"""
 
 
 def prepare_neighborhood_information(neighborhood_type,
@@ -88,15 +95,10 @@ def prepare_neighborhood_information(neighborhood_type,
 class BatchSamplerAbstract(Sampler):
     """
     This class defines how to sample the streamlines available in the
-    MultiSubjectData. However, the format in which the streamlines should be
-    returned depend on how you want to use them: as whole sequences
-    (torch.rnn.PackedSequence) or as individual time steps (NotImplemented).
-    See below for the BatchSequenceSampler and the BatchPointSampler.
-
-    It is possible to restrict the number of subjects in a batch (and thus the
-    number of inputs to load associated with sampled streamlines), and to
-    reduce the number of time we need to load new data by using the same
-    subjects for a given number of "cycles".
+    MultiSubjectData. It is possible to restrict the number of subjects in a
+    batch (and thus the number of inputs to load associated with sampled
+    streamlines), and to reduce the number of time we need to load new data by
+    using the same subjects for a given number of "cycles".
 
     NOTE: Actual batch sizes might be different than `batch_size` depending
     on chosen data augmentation. This sampler takes streamline cutting and
@@ -536,7 +538,6 @@ class BatchSequencesSampler(BatchSamplerAbstract):
 
         logging.debug('BatchSequencesSampler unused kwargs: {}'.format(kwargs))
 
-
     @property
     def hyperparameters(self):
         hyperparameters = super().hyperparameters
@@ -564,22 +565,42 @@ class BatchSequencesSampler(BatchSamplerAbstract):
         Returns
         -------
         If self.avoid_cpu_computations:
-            (batch_streamlines, final_streamline_ids_per_sub)
+            (batch_streamlines, final_streamline_ids_per_subj)
         Else:
-            packed_directions
+            (batch_directions, final_streamline_ids_per_subj)
+        Where
+            - batch_streamlines: list[np.array]
+                The new streamlines after data augmentation
+            - batch_directions: list[torch.Tensor]
+                The (normalized) directions computed from each streamline.
+            - final_streamline_ids_per_subj: Dict[int, slice]
+                The new streamline ids per subj in this augmented batch.
         """
-        (batch_streamlines,
-         final_streamline_ids_per_subj) = self.streamlines_data_augmentation(
-            streamline_ids_per_subj)
+        (batch_streamlines, final_streamline_ids_per_subj) = \
+            self.streamlines_data_augmentation(streamline_ids_per_subj)
+
         if self.avoid_cpu_computations:
             return batch_streamlines, final_streamline_ids_per_subj
         else:
-            packed_directions, _ = self.compute_and_normalize_directions(
-                batch_streamlines)
-            return packed_directions
+            return self.compute_and_normalize_directions(batch_streamlines), \
+                   final_streamline_ids_per_subj
 
-    def streamlines_data_augmentation(self,
-                                      streamline_ids_per_subj: Dict[int, list]):
+    def streamlines_data_augmentation(
+            self, streamline_ids_per_subj: Dict[int, list]):
+        """
+        Parameters
+        -----------
+        streamline_ids_per_subj: Dict[int, list]
+            The list of streamlines for this batch, per subject (corresponding
+            to the streamlines id in the hdf5 dataset).
+
+        Returns
+        -------
+        batch_streamlines: List[np.array]
+            The new streamlines after data augmentation
+        final_streamline_ids_per_subj: Dict[int, slice]
+            The new streamline ids per subj in this augmented batch.
+        """
         batch_streamlines = []
 
         # The batch's streamline ids will change throughout processing because
@@ -589,8 +610,7 @@ class BatchSequencesSampler(BatchSamplerAbstract):
         final_streamline_ids_per_subj = defaultdict(slice)
         for subj, s_ids in streamline_ids_per_subj.items():
             subj_data = self.data_source.get_subject_data(subj)
-            logging.debug("    Data augmentation for subj {}"
-                          .format(subj + 1))
+            logging.debug("    Data augmentation for subj {}".format(subj + 1))
 
             # Get streamlines as sft
             sft = subj_data.sft_data.get_chosen_streamlines_as_sft(s_ids)
@@ -644,25 +664,8 @@ class BatchSequencesSampler(BatchSamplerAbstract):
             batch_directions = [s / torch.sqrt(torch.sum(s ** 2, dim=-1,
                                                          keepdim=True))
                                 for s in batch_directions]
-        packed_directions = pack_sequence(batch_directions,
-                                          enforce_sorted=False)
-        return packed_directions, batch_directions
 
-
-class BatchPointsSampler(BatchSamplerAbstract):
-    """
-    This class loads streamlines one point at the time when streamlines
-    are not needed as whole sequences.
-
-    Currently, the __iter__ from the BatchSamplerAbstract samples complete
-    streamline ids, not just points. The MultiSubjectData would have to be
-    modified to find only some timesteps from a given streamline. It is
-    probably easier to sample all points from each sampled streamline, and then
-    use them separatedly instead of the rnn.PackedSequence that
-    BatchSequenceSampler uses.
-    """
-    def __init__(self):
-        raise NotImplementedError
+        return batch_directions
 
 
 class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
@@ -716,12 +719,12 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
         if nb_previous_dirs is None:
             nb_previous_dirs = 0
         self.nb_previous_dirs = nb_previous_dirs
-        self.feature_sizes = self.set_feature_sizes(self.input_group_idx)
+        self.final_feature_sizes = self._compute_feature_sizes(idx)
 
         logging.debug('BatchSequencesSamplerOneInputVolume unused kwargs: {}'
                       .format(kwargs))
 
-    def set_feature_sizes(self, input_group_idx):
+    def _compute_feature_sizes(self, input_group_idx):
         """
         Depending on data augmentation, compute features sizes to help prepare
         an eventual model.
@@ -729,15 +732,14 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
         if len(self.data_source.data_list.feature_sizes) == 0:
             self.data_source.load_data()
 
-        # input size is the number of feature at each voxel.
-        volume_size = self.data_source.data_list.feature_sizes[input_group_idx]
-        expected_input_size = volume_size[-1]
+        # The data list feature_size is the last dim of each input volume.
+        expected_input_size = \
+            self.data_source.data_list.feature_sizes[input_group_idx]
 
         if self.neighborhood_points is not None:
             expected_input_size += len(self.neighborhood_points) * \
                                    expected_input_size
-        if self.nb_previous_dirs > 0:
-            expected_input_size += self.nb_previous_dirs * 3                                                                    # toDo. Phil avait mis += 128. Pk???
+
         return expected_input_size
 
     @property
@@ -754,18 +756,18 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
 
     def load_batch(self, streamline_ids_per_subj: Dict[int, list]):
         """
-        Fetches the chosen streamlines + underlying inputs for all subjects in
-        batch. Pocesses data augmentation. Add previous_direction to the input.
+        Fetches the chosen streamlines + underlying inputs + previous_dirs (if
+        wanted) for all subjects in batch. Pocesses data augmentation.
 
         Torch uses this function to process the data with the dataloader
         workers. To be used as collate_fn. This part is ran on CPU.
 
         With self.avoid_cpu_computations options: directions are not computed,
         and interpolation is not done. If you want to compute them later, use
-        >> packed_directions = sampler.compute_and_normalize_directions(
+        >> directions = sampler.compute_and_normalize_directions(
                batch_streamlines, final_streamline_ids_per_subj)
-        >> packed_inputs = sampler.compute_interpolation(batch_streamlines,
-               streamline_ids_per_subj, packed_directions)
+        >> inputs, previous_dirs = sampler.compute_interpolation(
+               batch_streamlines, streamline_ids_per_subj, directions)
 
         Parameters
         ----------
@@ -782,35 +784,42 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                 A dictionary that maps each subject to the list of (processed)
                 streamlines.
         else:
-            packed_inputs : PackedSequence
-                Inputs volume loaded from the given group name.
-            packed_directions : PackedSequence
-                Streamline directions.
+            batch_inputs : List of torch.Tensor
+                Inputs volume loaded from the given group name. Data is
+                flattened. Length of the list is the number of streamlines.
+                Size of tensor at index i is [N_i-1, nb_features].
+            batch_directions : List of torch.Tensors
+                Streamline directions. Length of the list is the number of
+                streamlines. Size of tensor at index i is [N_i-1, 3].
+            previous_dirs: List of torch.Tensors
+                Streamline previous directions (when begginning of streamline
+                has been reached, "preceding" direction is [NaN, NaN, NaN].
+                Length of the list is the number of streamlines. Size of tensor
+                at index i is [N_i-1, 3*self.nb_previous_dirs].
         """
         if self.avoid_cpu_computations:
             # Only returning the streamlines for now.
             # Note that this is the same as using data_preparation_cpu_step
             return super().load_batch(streamline_ids_per_subj)
         else:
-
+            # Can't use super() because we need the raw streamline coordinates
+            # (not the directions) to find underlying input.
             batch_streamlines, streamline_ids_per_subj = \
                 self.streamlines_data_augmentation(streamline_ids_per_subj)
 
-            # Get the packed directions from super
-            (packed_directions,
-             batch_directions) = super().compute_and_normalize_directions(
-                batch_streamlines)
+            # Get back the directions
+            batch_directions = \
+                super().compute_and_normalize_directions(batch_streamlines)
 
-            # Get the packed inputs
-            packed_inputs = self.compute_interpolation(batch_streamlines,
-                                                       streamline_ids_per_subj,
-                                                       batch_directions)
+            # Get the inputs and previous dirs
+            batch_inputs, previous_dirs = self.compute_inputs(
+                batch_streamlines, streamline_ids_per_subj, batch_directions)
 
-            return packed_inputs, packed_directions
+            return batch_inputs, batch_directions, previous_dirs
 
-    def compute_interpolation(self, batch_streamlines: List[np.ndarray],
-                               streamline_ids_per_subj: Dict[int, slice],
-                               batch_directions):
+    def compute_inputs(self, batch_streamlines: List[np.ndarray],
+                       streamline_ids_per_subj: Dict[int, slice],
+                       batch_directions):
         """
         Get the DWI (depending on volume: as raw, SH, fODF, etc.) volume for
         each point in each streamline (+ depending on options: neighborhood,
@@ -834,13 +843,10 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
             # If user chose to add neighborhood:
             if self.neighborhood_type:
                 n_input_points = flat_subj_x_coords.shape[0]
-                logging.debug('Nb input points: {}'.format(n_input_points))
 
                 # Extend the coords array with the neighborhood coordinates
                 flat_subj_x_coords = extend_coordinates_with_neighborhood(
                     flat_subj_x_coords, self.neighborhood_points)
-                logging.debug('Nb final points with neighborhood (shape 3): {}'
-                              .format(flat_subj_x_coords.shape))
 
                 # Interpolate signal for each (new) point
                 coords_torch = torch.as_tensor(flat_subj_x_coords,
@@ -848,8 +854,7 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                                                device=self.device)
                 flat_subj_x_data, coords_clipped = \
                     torch_trilinear_interpolation(data_volume, coords_torch)
-                logging.debug('Nb final interpolated points (shape 3D): {}'
-                              .format(flat_subj_x_data.shape))
+
                 # Reshape signal into (n_points, new_feature_size)
                 # DWI data features for each neighboor are contatenated.
                 #    dwi_feat1_neig1  dwi_feat2_neig1 ...  dwi_featn_neighbm
@@ -857,66 +862,49 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
                 #  p2        .              .                    .
                 n_features = (flat_subj_x_data.shape[-1] *
                               (self.neighborhood_points.shape[0] + 1))
-                flat_subj_x_data = flat_subj_x_data.reshape(n_input_points,
+                subj_x_data = flat_subj_x_data.reshape(n_input_points,
                                                             n_features)
             else:  # No neighborhood:
                 # Interpolate signal for each point
-                logging.debug('Nb input points: {}'
-                              .format(flat_subj_x_coords.shape[0]))
-
                 coords_torch = torch.as_tensor(flat_subj_x_coords,
                                                dtype=torch.float,
                                                device=self.device)
-                flat_subj_x_data, coords_clipped = \
+                subj_x_data, coords_clipped = \
                     torch_trilinear_interpolation(data_volume.data,
                                                   coords_torch)
-                logging.debug('Nb final interpolated points (shape 3D): {}'
-                              .format(flat_subj_x_data.shape))
 
-            if torch.any(np.isnan(flat_subj_x_data)):
+            if torch.any(np.isnan(subj_x_data)):
                 logging.warning('WARNING. NaN values found in the underlying '
                                 'input. Some streamlines were probably '
                                 'outside the mask.')
 
             if SAVE_BATCH_INPUT_MASK:
-                logging.debug("DEBUGGING MODE. Creating underlying mask.")
+                logging.debug("DEBUGGING MODE. Not returning inputs. "
+                              "Returning batch_streamlines and mask instead.")
                 input_mask = torch.tensor(np.zeros(data_volume.shape[0:3]))
                 for s in range(len(coords_torch)):
                     input_mask.data[tuple(coords_clipped[s, :])] = 1
                 batch_input_masks.append(input_mask)
+
+                return batch_streamlines, batch_input_masks
 
             # Free the data volume from memory "immediately"
             del data_volume
 
             # Split the flattened signal back to streamlines
             lengths = [len(s) - 1 for s in batch_streamlines[y_ids]]
-            subbatch_x_data = flat_subj_x_data.split(lengths)
+            subbatch_x_data = subj_x_data.split(lengths)
             batch_x_data.extend(subbatch_x_data)
 
-        # Add previous directions to input
-        # Using a for loop but
+        # Compute previous directions
+        previous_dirs = []
         if self.nb_previous_dirs > 0:
             empty_coord = torch.zeros((1, 3), dtype=torch.float32,
-                                       device=self.device)
-            for i in range(self.nb_previous_dirs):
-                ith_previous_dirs = \
-                    [torch.cat((empty_coord.repeat(i + 1, 1), s[:-(i + 1)]))
-                     for s in batch_directions]
-                batch_x_data = [torch.cat((s, p), dim=1)
-                                for s, p in zip(batch_x_data,
-                                                ith_previous_dirs)]
+                                      device=self.device)*float('NaN')
+            previous_dirs = \
+                [torch.cat([torch.cat((empty_coord.repeat(i + 1, 1),
+                                       s[:-(i + 1)]))
+                            for i in range(self.nb_previous_dirs)], dim=1)
+                 for s in batch_directions]
 
-        if SAVE_BATCH_INPUT_MASK:
-            # Debugging purposes. Returned batch_x contains input_masks.
-            # Retrieving. For now, batch_x is not important and not
-            # returned. Note that mask is easier to analyse with only one
-            # subject because then, all the batch_streamlines should fit
-            # with the same input_mask.
-            logging.debug("DEBUGGING MODE. Not returning packed inputs. "
-                          "Returning batch_streamlines and mask instead.")
-            return batch_streamlines, batch_input_masks
-        else:
-            # Packing data.
-            packed_inputs = pack_sequence(batch_x_data, enforce_sorted=False)
-
-            return packed_inputs
+        return batch_x_data, previous_dirs

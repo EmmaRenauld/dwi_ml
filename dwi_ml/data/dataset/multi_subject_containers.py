@@ -172,7 +172,7 @@ class MultiSubjectDatasetAbstract(Dataset):
                     streamline_group=self.streamline_group, log=self.log)
 
                 # Add subject to the list
-                subj_idx = self.data_list.add_subject(subj_data)
+                subj_idx = self.data_list.add_subject(subj_data, self.log)
 
                 # Arrange streamlines
                 # In the lazy case, we need to load the data first using the
