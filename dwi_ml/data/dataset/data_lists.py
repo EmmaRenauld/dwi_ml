@@ -15,7 +15,9 @@ class DataListForTorchAbstract(object):
     """
     def __init__(self):
         # Feature sizes should be common to all subjects.
-        self.subjects_data_list = []  # List of SubjectData
+        self.subjects_data_list = []  # type: List[SubjectDataAbstract]
+
+        #
         self.feature_sizes = []  # One value per volume group.
         self.volume_groups = []  # Will be set by the first subj.
         # Others must fit.
@@ -34,11 +36,11 @@ class DataListForTorchAbstract(object):
                              'verifying its feature sizes.')
 
         for i in range(len(self.volume_groups)):
-            self.feature_sizes.append(self._get_group_feature_size(0, i))
+            self.feature_sizes.append(self._get_group_feature_size(i))
 
-    def _get_group_feature_size(self, subj: int, group: int):
-        """Get subject #subj's group #group's feature size"""
-        raise NotImplementedError
+    def _get_group_feature_size(self, group: int):
+        """Get subject group's feature size based on subj #0"""
+        return self.subjects_data_list[0].
 
     def add_subject(self, subject_data: SubjectDataAbstract):
         """

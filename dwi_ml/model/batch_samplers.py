@@ -493,26 +493,6 @@ class BatchSamplerAbstract(Sampler):
         """Load and prepare data for a batch"""
         raise NotImplementedError
 
-    @property
-    def feature_sizes(self):
-        """
-        Depending on data augmentation and eventually on input information,
-        compute features sizes to help prepare an eventual model
-        """
-        """
-        Philippe:
-                if self.input_size is None:
-            self.load_dataset()
-            
-        expected_input_size = self.train_dataset.tractodata_manager.feature_size
-        if self.add_neighborhood:
-            expected_input_size += 26 * self.train_dataset.tractodata_manager.feature_size
-        if self.add_previous_dir:
-            expected_input_size += 128
-        return expected_input_size
-        """
-        raise NotImplementedError
-
 
 class BatchSequencesSampler(BatchSamplerAbstract):
     """
@@ -668,10 +648,6 @@ class BatchSequencesSampler(BatchSamplerAbstract):
                                           enforce_sorted=False)
         return packed_directions, batch_directions
 
-    @property
-    def feature_sizes(self):
-        raise NotImplementedError
-
 
 class BatchPointsSampler(BatchSamplerAbstract):
     """
@@ -737,15 +713,37 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
         idx = self.data_source.volume_groups.index(input_group_name)
         self.input_group_idx = idx
 
+        if nb_previous_dirs is None:
+            nb_previous_dirs = 0
         self.nb_previous_dirs = nb_previous_dirs
+        self.feature_sizes = self.set_feature_sizes(self.input_group_idx)
 
         logging.debug('BatchSequencesSamplerOneInputVolume unused kwargs: {}'
                       .format(kwargs))
 
+    def set_feature_sizes(self, input_group_idx):
+        """
+        Depending on data augmentation, compute features sizes to help prepare
+        an eventual model.
+        """
+        if len(self.data_source.data_list.feature_sizes) == 0:
+            self.data_source.load_data()
+
+        # input size is the number of feature at each voxel.
+        volume_size = self.data_source.data_list.feature_sizes[input_group_idx]
+        expected_input_size = volume_size[-1]
+
+        if self.neighborhood_points is not None:
+            expected_input_size += len(self.neighborhood_points) * \
+                                   expected_input_size
+        if self.nb_previous_dirs > 0:
+            expected_input_size += self.nb_previous_dirs * 3                                                                    # toDo. Phil avait mis += 128. Pk???
+        return expected_input_size
+
     @property
     def hyperparameters(self):
         hyperparameters = super().hyperparameters
-        hyperparameters['nb_previous_dirs'] = self.nb_previous_dirs
+        hyperparameters.update({'nb_previous_dirs': self.nb_previous_dirs})
         return hyperparameters
 
     @property
@@ -922,7 +920,3 @@ class BatchSequencesSamplerOneInputVolume(BatchSequencesSampler):
             packed_inputs = pack_sequence(batch_x_data, enforce_sorted=False)
 
             return packed_inputs
-
-    @property
-    def feature_sizes(self):
-        raise NotImplementedError
