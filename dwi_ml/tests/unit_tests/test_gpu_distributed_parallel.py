@@ -1,5 +1,22 @@
+"""
+Copying tutorial from
+
+https://pytorch.org/tutorials/intermediate/ddp_tutorial.html
+
+Run on multiple GPU. Ex:
+salloc --gpus-per-node=2 --time=00:05:00 -A $GROUP
+
+This will print: each step twice
+1) Basic demo -----: on GPU 1 out of 2.
+1) Basic demo -----: on GPU 2 out of 2.
+2) Running from checkpoint -----: on GPU 1 out of 2.
+2) Running from checkpoint -----: on GPU 2 out of 2.
+3) Basic demo parallel ------: on GPU 1 out of 2, sub-dev 0 and 1.
+3) Basic demo parallel ------: on GPU 1 out of 2, sub-dev 0 and 1.
+
+"""
+
 import os
-import sys
 import tempfile
 import torch
 import torch.distributed as dist
