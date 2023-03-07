@@ -147,15 +147,6 @@ def demo_checkpoint(rank, nb_gpus):
     cleanup()
 
 
-def copied_from_tutorial():
-    n_gpus = torch.cuda.device_count()
-    # assert n_gpus >= 2, f"Requires at least 2 GPUs to run, but got {n_gpus}"
-    world_size = n_gpus
-    run_demo(demo_basic, world_size)
-    run_demo(demo_checkpoint, world_size)
-    run_demo(demo_model_parallel, world_size)
-
-
 def demo_model_parallel(rank, nb_gpus):
     print("3) Basic demo parallel ------")
     print(f"  Running basic DDP example on GPU {rank + 1} out of {nb_gpus}.")
@@ -180,17 +171,15 @@ def demo_model_parallel(rank, nb_gpus):
 
     cleanup()
 
-def using_lists():
-    print('allo')
 
-
-def main():
-    print("------RUNNING TUTORIAL")
-    copied_from_tutorial()
-
-    print("\n\n------USING LISTS")
-    using_lists()
+def test_distributed_parallel_from_tutorial():
+    n_gpus = torch.cuda.device_count()
+    # assert n_gpus >= 2, f"Requires at least 2 GPUs to run, but got {n_gpus}"
+    world_size = n_gpus
+    run_demo(demo_basic, world_size)
+    run_demo(demo_checkpoint, world_size)
+    run_demo(demo_model_parallel, world_size)
 
 
 if __name__ == '__main__':
-    main()
+    test_distributed_parallel_from_tutorial()

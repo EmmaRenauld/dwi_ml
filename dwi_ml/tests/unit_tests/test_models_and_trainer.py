@@ -9,8 +9,6 @@ from dwi_ml.tests.utils.data_and_models_for_tests import (
     create_test_batch_sampler, create_batch_loader, fetch_testing_data,
     ModelForTest, TrackingModelForTestWithPD)
 
-SAVE_RESULT_SFT_NII = False
-ref = None
 batch_size = 50
 batch_size_units = 'nb_streamlines'
 
