@@ -9,6 +9,9 @@ from typing import Union, List
 from comet_ml import (Experiment as CometExperiment, ExistingExperiment)
 import numpy as np
 import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
@@ -108,7 +111,9 @@ class DWIMLAbstractTrainer:
             Number of parallel CPU workers. Use 0 to avoid parallel threads.
             Default : 0.
         use_gpu: bool
-            If true, use GPU device when possible instead of CPU.
+            If true, use GPU device when possible instead of CPU. If more than
+            one GPUs are available, use them all (splits the batches amongst
+            GPUs).
             Default = False
         comet_workspace: str
             Your comet workspace. See our docs/Getting Started for more
@@ -208,6 +213,7 @@ class DWIMLAbstractTrainer:
         if use_gpu:
             if torch.cuda.is_available():
                 self.device = torch.device('cuda')
+                self.nb_gpus = torch.cuda.device_count()
 
                 # If you see a hint error below in code editor, upgrade torch.
                 torch.cuda.manual_seed(self.batch_sampler.rng)
@@ -218,6 +224,7 @@ class DWIMLAbstractTrainer:
                                  "available!")
         else:
             self.device = torch.device('cpu')
+            self.nb_gpus = None
 
         # toDo. See if we would like to implement mixed precision.
         #  Could improve performance / speed
@@ -290,7 +297,7 @@ class DWIMLAbstractTrainer:
 
         # Prepare optimizer
         # Send model to device. Reminder, contrary to tensors, model.to
-        # overwrites the model.
+        # overwrites the model (inplace).
         # NOTE: This ordering is important! The optimizer needs to use the cuda
         # Tensors if using the GPU...
         self.model.move_to(device=self.device)
@@ -593,7 +600,16 @@ class DWIMLAbstractTrainer:
                 self.batch_loader.set_context('training')
                 grad_context = torch.enable_grad
                 with grad_context():
-                    mean_loss, n = self.run_one_batch(data)
+                    if self.use_gpu and self.nb_gpus > 1:
+                        # Multi-processing on GPU
+                        data = self.batch_loader.split_batch(data, self.nb_gpus)
+                        mean_loss, n = mp.spawn(self.run_one_batch_multigpu,
+                                                args=(data, ),
+                                                nprocs=self.nb_gpus,
+                                                join=True)
+                    else:
+                        mean_loss, n = self.run_one_batch(data, self.device,
+                                                          self.model)
 
                 self.logger.debug('*** Computing back propagation')
                 mean_loss.backward()
@@ -789,7 +805,44 @@ class DWIMLAbstractTrainer:
                 "best_loss",
                 self.best_epoch_monitoring.best_value)
 
-    def run_one_batch(self, data):
+    def run_one_batch_multigpu(self, gpu_id, data):
+        """
+        gpu_id: int or None
+            If this method is called using multi-processing, it will receive
+            first the gpu_id. Else, ignore.
+        """
+        assert self.use_gpu and self.nb_gpus > 1
+        # This was called using torch multiprocessing.
+        # Preparing stuff.
+
+        # Copied from torch tutorial. Not sure if always ok.
+        backend = "gloo"
+        os.environ['MASTER_ADDR'] = 'localhost'
+        os.environ['MASTER_PORT'] = '12355'
+        dist.init_process_group(backend, rank=gpu_id, world_size=self.nb_gpus)
+
+        # Getting current batch
+        data = data[gpu_id]
+        logging.debug("GPU ID: {}/ {}. Batch size: {}"
+                      .format(gpu_id, self.nb_gpus, len(data[0])))
+
+        # Sending everything to correct GPU
+        model = DDP(self.model, device_ids=[gpu_id])
+        mean, n = self.run_one_batch(data, gpu_id, model)
+
+        # The call optimizer.step() must be done here. Not sure how to do that.
+        # Usually, the whole training method is called in the multiprocessing.
+        # See here https://yangkky.github.io/2019/07/08/distributed-pytorch-tutorial.html
+        # and here https://pytorch.org/tutorials/intermediate/ddp_tutorial.html
+        # and here https://pytorch.org/docs/master/notes/ddp.html
+        raise NotImplementedError
+
+        # Finalise stuff
+        dist.destroy_process_group()
+
+        return mean, n
+
+    def run_one_batch(self, data, device, model):
         """
         Run a batch of data through the model (calling its forward method)
         and return the mean loss. If training, run the backward method too.
@@ -804,6 +857,8 @@ class DWIMLAbstractTrainer:
             - final_streamline_ids_per_subj: the dict of streamlines ids from
               the list of all streamlines (if we concatenate all sfts'
               streamlines)
+        device: torch device
+        model: either self.model or its DDP version.
 
         Returns
         -------
@@ -1036,7 +1091,7 @@ class DWIMLTrainerOneInput(DWIMLAbstractTrainer):
     batch_loader: DWIMLBatchLoaderOneInput
     model: MainModelOneInput
 
-    def run_one_batch(self, data):
+    def run_one_batch(self, data, device, model):
         """
         Run a batch of data through the model (calling its forward method)
         and return the mean loss. If training, run the backward method too.
@@ -1063,7 +1118,7 @@ class DWIMLTrainerOneInput(DWIMLAbstractTrainer):
         # need to be done here in the main thread. Running final steps
         # of data preparation.
         self.logger.debug('Finalizing input data preparation on GPU.')
-        batch_streamlines, final_s_ids_per_subj = data
+        batch_streamlines, dict_ids_per_subj = data
 
         # Dataloader always works on CPU.
         # We have the possibility to bring everything to GPU now.
@@ -1073,8 +1128,12 @@ class DWIMLTrainerOneInput(DWIMLAbstractTrainer):
                              for s in batch_streamlines]
 
         # Getting the inputs points from the volumes.
-        batch_inputs = self.batch_loader.load_batch_inputs(
-            self.model, batch_streamlines, final_s_ids_per_subj)
+        if isinstance(model, DDP):
+            batch_inputs = self.batch_loader.load_batch_inputs(
+                model.module, batch_streamlines, dict_ids_per_subj)
+        else:
+            batch_inputs = self.batch_loader.load_batch_inputs(
+                model, batch_streamlines, dict_ids_per_subj)
 
         # Possibly add noise to inputs here.
 

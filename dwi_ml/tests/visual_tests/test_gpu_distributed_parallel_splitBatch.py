@@ -79,6 +79,7 @@ def compute_inputs_and_train(gpu_id, nb_gpus, dicts, batches, batch_loader,
         model.module, batch_streamlines, batch_ids)
     model_outputs = model(batch_inputs)
     print("SUCESS. Model outputs:", len(model_outputs))
+    dist.destroy_process_group()
 
 
 def load_and_split_batches(nb_gpus, batch_sampler, batch_loader):
