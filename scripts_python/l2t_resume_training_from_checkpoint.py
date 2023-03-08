@@ -59,7 +59,7 @@ def init_from_checkpoint(args, checkpoint_path):
 
     # Prepare batch loader
     _args = argparse.Namespace(**checkpoint_state['batch_loader_params'])
-    batch_loader = prepare_batch_loader(dataset, model, _args, sub_loggers_level)
+    batch_loader = prepare_batch_loader(dataset, _args, sub_loggers_level)
 
     # Instantiate trainer
     with Timer("\nPreparing trainer", newline=True, color='red'):

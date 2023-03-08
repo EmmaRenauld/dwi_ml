@@ -1,9 +1,13 @@
 #!/usr/bin/env python
+
+"""
+Based on tutorial from: https://pytorch.org/tutorials/intermediate/ddp_tutorial.html
+"""
 import logging
 import os
 
 import numpy as np
-import pytest
+import requests.exceptions
 import torch
 import torch.multiprocessing as mp
 
@@ -21,16 +25,20 @@ batch_size = 50
 batch_size_units = 'nb_streamlines'
 
 
-def test_multi_gpu():
-    data_dir = fetch_testing_data()
-    hdf5_filename = os.path.join(data_dir, 'hdf5_file.hdf5')
+def manual_test_multi_gpu():
+    try:
+        data_dir = fetch_testing_data()
+        hdf5_filename = os.path.join(data_dir, 'hdf5_file.hdf5')
+    except requests.exceptions.ConnectionError:
+        # This test is meant to be used on multi-gpu. In our case, cluster does
+        # not allow fetch test data. Copy ~/.scilpy/hdf5_file.hdf5 and use.
+        hdf5_filename = './hdf5_file.hdf5'
 
     # Initializing dataset
     dataset = MultiSubjectDataset(hdf5_filename, lazy=False)
     dataset.load_data()
 
     # Initializing main classes
-    model = ModelForTest()
     batch_sampler, batch_loader = _create_sampler_and_loader(dataset)
 
     nb_gpus = torch.cuda.device_count()
@@ -47,6 +55,9 @@ def test_multi_gpu():
 
 def compute_inputs_and_train(gpu_id, nb_gpus, dicts, batches, batch_loader,
                              model):
+    batch_ids = dicts[gpu_id]
+    batch_streamlines = batches[gpu_id]
+
     os.environ['MASTER_ADDR'] = 'localhost'
     os.environ['MASTER_PORT'] = '12355'
     dist.init_process_group(backend, rank=gpu_id, world_size=nb_gpus)
@@ -57,18 +68,17 @@ def compute_inputs_and_train(gpu_id, nb_gpus, dicts, batches, batch_loader,
     model = DDP(model, device_ids=[gpu_id])
     print(model.device)
 
-    batch_ids = dicts[gpu_id]
-    batch_streamlines = batches[gpu_id]
+    print("GPU ID: {}/ {}. Batch size: {}"
+          .format(gpu_id, nb_gpus, len(batch_streamlines)))
+
     batch_streamlines = [s.to(gpu_id, non_blocking=True,
                               dtype=torch.float)
                          for s in batch_streamlines]
-    print("GPU ID: {}/ {}. Batch size: {}"
-          .format(gpu_id, nb_gpus, len(batch_streamlines)))
 
     batch_inputs = batch_loader.load_batch_inputs(
         model.module, batch_streamlines, batch_ids)
     model_outputs = model(batch_inputs)
-    print("SUCESS. Model outputs:", model_outputs)
+    print("SUCESS. Model outputs:", len(model_outputs))
 
 
 def load_and_split_batches(nb_gpus, batch_sampler, batch_loader):
@@ -85,10 +95,11 @@ def load_and_split_batches(nb_gpus, batch_sampler, batch_loader):
 
     if nb_gpus > 1:
         nb_subjs = len(batch_idx_tuples)
-        print("nb subjs", nb_subjs)
         if nb_subjs == 1:
             nb_streamlines = len(batch_streamlines)
-            print("nb streamlines:", nb_streamlines)
+
+            print("One subject. Splitting the {} streamlines amongt GPUs."
+                  .format(nb_streamlines))
 
             # We can just divide its streamlines
             subj_id = list(batch_idx_dict.keys())[0]
@@ -98,15 +109,15 @@ def load_and_split_batches(nb_gpus, batch_sampler, batch_loader):
                              for i in range(nb_gpus)]
             list_of_streamlines = [[batch_streamlines[i] for i in
                                    group_ids[g]] for g in range(nb_gpus)]
-            print("list of dicts: {}".format(list_of_dicts))
-            print("batch sizes: {}"
+            print("Sub-batch sizes: {}"
                   .format([len(sub_batch)
                            for sub_batch in list_of_streamlines]))
         elif nb_subjs % nb_gpus == 0:
             # We can just divide by subjects
             all_subjs = np.asarray(list(batch_idx_dict.keys()))
-            print(all_subjs)
-            print(nb_gpus)
+            print("Found {} subjects in the batch, to be devided into {} "
+                  "GPUs. Unclear how to optimize this, we will try our best."
+                  .format(len(all_subjs), nb_gpus))
             groups_of_subjs = np.split(all_subjs, nb_gpus)
 
             list_of_streamlines = []
@@ -123,8 +134,7 @@ def load_and_split_batches(nb_gpus, batch_sampler, batch_loader):
                 list_of_dicts.append(group_dict)
                 list_of_streamlines.append(streamlines)
 
-            print("list of dicts: {}".format(list_of_dicts))
-            print("batch sizes: {}"
+            print("Sub-batch sizes: {}"
                   .format([len(sub_batch)
                            for sub_batch in list_of_streamlines]))
         else:
@@ -155,5 +165,4 @@ def _create_sampler_and_loader(dataset):
 
 
 if __name__ == '__main__':
-    print("Entered test")
-    test_multi_gpu()
+    manual_test_multi_gpu()

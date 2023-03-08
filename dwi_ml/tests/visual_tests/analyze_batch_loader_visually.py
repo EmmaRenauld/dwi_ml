@@ -42,17 +42,19 @@ def save_loaded_batch_for_visual_assessment(dataset, ref):
     logging.info("*********")
     logging.info("Split + reverse:")
     batch_loader = create_batch_loader(
-        dataset, model, step_size=0.5, noise_size=0.2, noise_variability=0.1,
+        dataset, step_size=0.5, noise_size=0.2, noise_variability=0.1,
         split_ratio=1, reverse_ratio=0.5)
     batch_loader.set_context('training')
-    _load_directly_and_verify(batch_loader, batch_idx_tuples, ref, 'split')
+    _load_directly_and_verify(model, batch_loader, batch_idx_tuples,
+                              ref, 'split')
 
     # 2) With compressing
     logging.info("*********")
     logging.info("Compressed:")
     batch_loader = create_batch_loader(dataset, model, compress=True)
     batch_loader.set_context('training')
-    _load_directly_and_verify(batch_loader, batch_idx_tuples, ref, 'compress')
+    _load_directly_and_verify(model, batch_loader, batch_idx_tuples,
+                              ref, 'compress')
 
     # 3) With neighborhood
     logging.info("*********")
@@ -63,10 +65,12 @@ def save_loaded_batch_for_visual_assessment(dataset, ref):
                          neighborhood_radius=[1, 2])
     batch_loader = create_batch_loader(dataset, model)
     batch_loader.set_context('training')
-    _load_directly_and_verify(batch_loader, batch_idx_tuples, ref, 'neighb')
+    _load_directly_and_verify(model, batch_loader, batch_idx_tuples,
+                              ref, 'neighb')
 
 
-def _load_directly_and_verify(batch_loader, batch_idx_tuples, ref, suffix):
+def _load_directly_and_verify(model, batch_loader, batch_idx_tuples, ref,
+                              suffix):
     # Prepare suffix for filename
     now = datetime.now().time()
     millisecond = round(now.microsecond / 10000)
@@ -77,8 +81,8 @@ def _load_directly_and_verify(batch_loader, batch_idx_tuples, ref, suffix):
     batch_streamlines, ids = batch_loader.load_batch_streamlines(
         batch_idx_tuples)
 
-    inputs_tuple  = batch_loader.load_batch_inputs(
-        batch_streamlines, ids, save_batch_input_mask=True)
+    inputs_tuple = batch_loader.load_batch_inputs(
+        model, batch_streamlines, ids, save_batch_input_mask=True)
 
     # Saving input coordinates as mask. You can open the mask and verify that
     # they fit the streamlines.

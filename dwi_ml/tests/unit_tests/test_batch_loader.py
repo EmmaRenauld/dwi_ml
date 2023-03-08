@@ -7,7 +7,6 @@ from dipy.io.stateful_tractogram import set_sft_logger_level
 from torch.utils.data.dataloader import DataLoader
 
 from dwi_ml.data.dataset.multi_subject_containers import MultiSubjectDataset
-from dwi_ml.models.main_models import MainModelOneInput
 from dwi_ml.tests.utils.expected_values import TEST_EXPECTED_NB_STREAMLINES
 from dwi_ml.tests.utils.data_and_models_for_tests import (
     create_test_batch_sampler, create_batch_loader, fetch_testing_data)
@@ -61,9 +60,8 @@ def test_batch_loader():
         # 1) With resampling
         logging.info('*** Test with batch size {} + loading with '
                      'resample, noise, split, reverse.'.format(batch_size))
-        model = MainModelOneInput(experiment_name='test')
         batch_loader = create_batch_loader(
-            dataset, model, step_size=0.5, noise_size=0.2,
+            dataset, step_size=0.5, noise_size=0.2,
             noise_variability=0.1, split_ratio=SPLIT_RATIO, reverse_ratio=0.5)
         batch_loader.set_context('training')
 
@@ -77,8 +75,7 @@ def test_batch_loader():
         # 2) With compressing
         logging.info('*** Test with batch size {} + loading with compress'
                      .format(batch_size))
-        batch_loader = create_batch_loader(dataset, model,
-                                           compress=True)
+        batch_loader = create_batch_loader(dataset, compress=True)
         batch_loader.set_context('training')
         _load_directly_and_verify(batch_loader, batch_idx_tuples,
                                   split_ratio=0)

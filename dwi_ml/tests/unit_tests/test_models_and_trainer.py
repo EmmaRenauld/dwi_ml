@@ -31,7 +31,7 @@ def test_trainer_and_models(experiments_path):
     # Initializing model 1 + associated batch sampler.
     logging.info("\n\n---------------TESTING TEST MODEL # 1 -------------")
     model = ModelForTest()
-    batch_sampler, batch_loader = _create_sampler_and_loader(dataset, model)
+    batch_sampler, batch_loader = _create_sampler_and_loader(dataset)
 
     # Start utils
     trainer = _create_trainer(batch_sampler, batch_loader, model,
@@ -41,7 +41,7 @@ def test_trainer_and_models(experiments_path):
     # Initializing model 2
     logging.info("\n\n---------------TESTING TEST MODEL # 2 -------------")
     model2 = TrackingModelForTestWithPD()
-    batch_sampler, batch_loader = _create_sampler_and_loader(dataset, model)
+    batch_sampler, batch_loader = _create_sampler_and_loader(dataset)
 
     # Start utils
     trainer2 = _create_trainer(batch_sampler, batch_loader, model2,
@@ -49,7 +49,7 @@ def test_trainer_and_models(experiments_path):
     trainer2.train_and_validate()
 
 
-def _create_sampler_and_loader(dataset, model):
+def _create_sampler_and_loader(dataset,):
 
     # Initialize batch sampler
     logging.debug('\nInitializing sampler...')
@@ -57,8 +57,7 @@ def _create_sampler_and_loader(dataset, model):
         dataset, batch_size=batch_size,
         batch_size_units='nb_streamlines', log_level=logging.WARNING)
 
-    batch_loader = create_batch_loader(dataset, model,
-                                       log_level=logging.WARNING)
+    batch_loader = create_batch_loader(dataset, log_level=logging.WARNING)
 
     return batch_sampler, batch_loader
 

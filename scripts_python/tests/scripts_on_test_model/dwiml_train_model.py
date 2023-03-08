@@ -73,7 +73,7 @@ def init_from_args(args, sub_loggers_level):
 
     # Preparing the batch sampler.
     batch_sampler = prepare_batch_sampler(dataset, args, sub_loggers_level)
-    batch_loader = prepare_batch_loader(dataset, model, args, sub_loggers_level)
+    batch_loader = prepare_batch_loader(dataset, args, sub_loggers_level)
 
     # Instantiate trainer
     # streamlines need to be sent to the forward method.
