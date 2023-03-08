@@ -229,7 +229,7 @@ class SFTData(SFTDataAbstract):
         """
         streamlines = _load_streamlines_from_hdf(hdf_group)
         # Adding non-hidden parameters for nicer later access
-        lengths_mm = hdf_group['euclidean_lengths']
+        lengths_mm = list(hdf_group['euclidean_lengths'])
 
         space_attributes, space = _load_space_from_hdf(hdf_group)
 

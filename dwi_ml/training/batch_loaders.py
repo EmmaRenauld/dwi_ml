@@ -329,7 +329,7 @@ class DWIMLBatchLoaderOneInput(DWIMLAbstractBatchLoader):
                 (possibly with its neighborhood)
         target = the whole streamlines as sequences.
     """
-    def __init__(self, input_group_name, model: MainModelOneInput, **kw):
+    def __init__(self, input_group_name, **kw):
         """
         Params
         ------
@@ -341,8 +341,6 @@ class DWIMLBatchLoaderOneInput(DWIMLAbstractBatchLoader):
         super().__init__(**kw)
 
         self.input_group_name = input_group_name
-        self.model = model
-        self.use_neighborhood = isinstance(model, ModelWithNeighborhood)
 
         # Find group index in the data_source
         idx = self.dataset.volume_groups.index(input_group_name)
@@ -363,7 +361,8 @@ class DWIMLBatchLoaderOneInput(DWIMLAbstractBatchLoader):
         }
         return states
 
-    def load_batch_inputs(self, batch_streamlines: List[torch.tensor],
+    def load_batch_inputs(self, model: MainModelOneInput,
+                          batch_streamlines: List[torch.tensor],
                           streamline_ids_per_subj: Dict[int, slice],
                           save_batch_input_mask: bool = False):
         """
@@ -408,7 +407,7 @@ class DWIMLBatchLoaderOneInput(DWIMLAbstractBatchLoader):
             # because in load_batch, we use sft.to_vox and sft.to_corner
             # before adding streamline to batch.
             subbatch_x_data, input_mask = \
-                self.model.prepare_batch_one_input(
+                model.prepare_batch_one_input(
                     streamlines, self.context_subset, subj,
                     self.input_group_idx, prepare_mask=save_batch_input_mask)
 

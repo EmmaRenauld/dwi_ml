@@ -175,7 +175,7 @@ def create_test_batch_sampler(
 
 
 def create_batch_loader(
-        subset, model, step_size=None, compress=False, noise_size=0.,
+        subset, step_size=None, compress=False, noise_size=0.,
         noise_variability=0., split_ratio=0., reverse_ratio=0.,
         log_level=logging.DEBUG):
     logging.debug('    Initializing batch loader...')
@@ -185,7 +185,7 @@ def create_batch_loader(
         compress=compress, step_size=step_size, split_ratio=split_ratio,
         noise_gaussian_size_forward=noise_size,
         noise_gaussian_var_forward=noise_variability,
-        reverse_ratio=reverse_ratio, log_level=log_level, model=model)
+        reverse_ratio=reverse_ratio, log_level=log_level)
 
     return batch_loader
 

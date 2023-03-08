@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import logging
 import os
-import tempfile
 
 import numpy as np
 import pytest
@@ -12,38 +11,52 @@ from dwi_ml.data.dataset.multi_subject_containers import MultiSubjectDataset
 from dwi_ml.tests.utils.data_and_models_for_tests import (
     create_test_batch_sampler, create_batch_loader, fetch_testing_data,
     ModelForTest)
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 
+# backend: The backend to use. Depending on build-time configurations,
+# valid values include mpi, gloo, nccl, and ucc.
+backend = "gloo"
 batch_size = 50
 batch_size_units = 'nb_streamlines'
 
 
-@pytest.fixture(scope="session")
-def experiments_path(tmp_path_factory):
-    experiments_path = tmp_path_factory.mktemp("unit_tests")
-    return str(experiments_path)
-
-
-def test_multi_gpu(experiments_path):
+def test_multi_gpu():
     data_dir = fetch_testing_data()
-
     hdf5_filename = os.path.join(data_dir, 'hdf5_file.hdf5')
 
     # Initializing dataset
     dataset = MultiSubjectDataset(hdf5_filename, lazy=False)
     dataset.load_data()
 
-    nb_gpus = torch.cuda.device_count()
-    dicts, batches, batch_loader = load_and_split_batches(nb_gpus, dataset)
+    # Initializing main classes
+    model = ModelForTest()
+    batch_sampler, batch_loader = _create_sampler_and_loader(dataset)
 
-    dataset.training_set.close_all_handles()
+    nb_gpus = torch.cuda.device_count()
+    dicts, batches, batch_loader = load_and_split_batches(
+        nb_gpus, batch_sampler, batch_loader)
+
+    model = ModelForTest()
+
     mp.spawn(compute_inputs_and_train,
-             args=(nb_gpus, dicts, batches, batch_loader),
+             args=(nb_gpus, dicts, batches, batch_loader, model),
              nprocs=nb_gpus,
              join=True)
 
 
 def compute_inputs_and_train(gpu_id, nb_gpus, dicts, batches, batch_loader,
                              model):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group(backend, rank=gpu_id, world_size=nb_gpus)
+
+    model.move_to(gpu_id)
+    print(model.device)
+
+    model = DDP(model, device_ids=[gpu_id])
+    print(model.device)
+
     batch_ids = dicts[gpu_id]
     batch_streamlines = batches[gpu_id]
     batch_streamlines = [s.to(gpu_id, non_blocking=True,
@@ -52,20 +65,13 @@ def compute_inputs_and_train(gpu_id, nb_gpus, dicts, batches, batch_loader,
     print("GPU ID: {}/ {}. Batch size: {}"
           .format(gpu_id, nb_gpus, len(batch_streamlines)))
 
-    batch_loader.move_to(gpu_id)
-    model.move_to(gpu_id)
     batch_inputs = batch_loader.load_batch_inputs(
-        batch_streamlines, batch_ids)
+        model.module, batch_streamlines, batch_ids)
     model_outputs = model(batch_inputs)
-    print("SUCESS. Model outputs:")
+    print("SUCESS. Model outputs:", model_outputs)
 
 
-def load_and_split_batches(nb_gpus, dataset):
-    # Initializing model 1 + associated batch sampler.
-    logging.info("\n\n---------------TESTING TEST MODEL # 1 -------------")
-    model = ModelForTest()
-    batch_sampler, batch_loader = _create_sampler_and_loader(dataset, model)
-
+def load_and_split_batches(nb_gpus, batch_sampler, batch_loader):
     # Loading a batch of streamlines (on CPU, like in DataLoader).
     batch_sampler.set_context('training')
     batch_loader.set_context('training')
@@ -135,7 +141,7 @@ def load_and_split_batches(nb_gpus, dataset):
     return list_of_dicts, list_of_streamlines, batch_loader
 
 
-def _create_sampler_and_loader(dataset, model):
+def _create_sampler_and_loader(dataset):
 
     # Initialize batch sampler
     logging.debug('\nInitializing sampler...')
@@ -143,12 +149,11 @@ def _create_sampler_and_loader(dataset, model):
         dataset, batch_size=batch_size,
         batch_size_units='nb_streamlines', log_level=logging.WARNING)
 
-    batch_loader = create_batch_loader(dataset, model,
-                                       log_level=logging.WARNING)
+    batch_loader = create_batch_loader(dataset, log_level=logging.WARNING)
 
     return batch_sampler, batch_loader
 
 
 if __name__ == '__main__':
-    tmp_dir = tempfile.TemporaryDirectory()
-    test_multi_gpu(os.path.join(tmp_dir.name, "unit_tests"))
+    print("Entered test")
+    test_multi_gpu()

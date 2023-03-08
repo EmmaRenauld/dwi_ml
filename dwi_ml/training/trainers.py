@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from dwi_ml.experiment_utils.memory import log_gpu_memory_usage
 from dwi_ml.experiment_utils.tqdm_logging import tqdm_logging_redirect
-from dwi_ml.models.main_models import MainModelAbstract
+from dwi_ml.models.main_models import MainModelAbstract, MainModelOneInput
 from dwi_ml.training.batch_loaders import (
     DWIMLAbstractBatchLoader, DWIMLBatchLoaderOneInput)
 from dwi_ml.training.batch_samplers import DWIMLBatchIDSampler
@@ -1034,6 +1034,7 @@ class DWIMLAbstractTrainer:
 
 class DWIMLTrainerOneInput(DWIMLAbstractTrainer):
     batch_loader: DWIMLBatchLoaderOneInput
+    model: MainModelOneInput
 
     def run_one_batch(self, data):
         """
@@ -1073,7 +1074,7 @@ class DWIMLTrainerOneInput(DWIMLAbstractTrainer):
 
         # Getting the inputs points from the volumes.
         batch_inputs = self.batch_loader.load_batch_inputs(
-            batch_streamlines, final_s_ids_per_subj)
+            self.model, batch_streamlines, final_s_ids_per_subj)
 
         # Possibly add noise to inputs here.
 

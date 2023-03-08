@@ -288,7 +288,7 @@ class MultisubjectSubset(Dataset):
                     lengths[group].append(subj_sft_data.lengths)
                     lengths_mm[group].append(subj_sft_data.lengths_mm)
 
-                    # Remove hdf handle
+                # Remove hdf handle
                 subj_data.hdf_handle = None
 
             # Arrange final data properties: Concatenate all subjects
