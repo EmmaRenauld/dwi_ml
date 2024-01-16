@@ -1,11 +1,8 @@
 # Supported for python 3.10
 # Should work for python > 3.8.
 
-# ----------
-# Scilpy and dipy must be installed manually first.
-# (or run pip install -r requirements_github.txt)
-# Not adding here to let you use your favorite version.
-# ----------
+scilpy==1.5.0
+
 
 bertviz~=1.4.0  # For transformer's visu
 torch==1.13.*
