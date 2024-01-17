@@ -266,7 +266,7 @@ class AbstractTransformerModel(ModelWithNeighborhood, ModelWithDirectionGetter,
 
         # d_model now a property method.
         if 'd_model' in params:
-            if isinstance(cls, TransformerSrcOnlyModel):
+            if cls.__name__ == TransformerSrcOnlyModel.__name__:
                 params['input_embedded_size'] = params['d_model']
 
             del params['d_model']
@@ -556,12 +556,6 @@ class TransformerSrcOnlyModel(AbstractTransformerModel):
     def params_for_checkpoint(self):
         p = super().params_for_checkpoint
         return p
-
-    @classmethod
-    def _load_params(cls, model_dir):
-        params = super()._load_params(model_dir)
-
-        return params
 
     def _prepare_data(self, inputs, _):
         # Nothing to do. Ignoring targets.
