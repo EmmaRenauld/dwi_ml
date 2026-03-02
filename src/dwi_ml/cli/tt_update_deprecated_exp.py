@@ -13,16 +13,16 @@ import logging
 import os
 import shutil
 
-import numpy as np
 import torch
+from dwi_ml.io_utils import verify_which_model_in_path
+from dwi_ml.models.projects.transformer_models import find_transformer_class
+from dwi_ml.training.projects.transformer_trainer import TransformerTrainer
 from scilpy.io.utils import add_verbose_arg
 
 from dwi_ml.data.dataset.utils import prepare_multisubjectdataset
 from dwi_ml.experiment_utils.prints import format_dict_to_str
-from dwi_ml.models.projects.learn2track_model import Learn2TrackModel
 from dwi_ml.training.batch_loaders import DWIMLBatchLoaderOneInput
 from dwi_ml.training.batch_samplers import DWIMLBatchIDSampler
-from dwi_ml.training.projects.learn2track_trainer import Learn2TrackTrainer
 
 
 def prepare_arg_parser():
@@ -53,21 +53,7 @@ def _replace(params, old_key, new_key):
     return params
 
 
-def fix_deprecated_learn2track_params(params):
-    # embedding_size --> embedded_size
-    params = _replace(params, 'prev_dirs_embedding_size',
-                     'prev_dirs_embedded_size')
-    params = _replace(params, 'input_embedding_size',
-                     'input_embedded_size')
-
-    # deleted size_ratio option
-    if 'input_embedding_size_ratio' in params:
-        assert params['input_embedding_size_ratio'] is None, \
-            ("Can't fix deprecated value 'inpute_embedded_size_ratio'; has no"
-             " new equivalent. I thought I never used it.")
-        logging.warning("Deleting option input_embedding_size_ratio")
-        del params['input_embedding_size_ratio']
-
+def fix_deprecated_transformers_params(params):
     # deleted start_from_copy_prev
     if 'start_from_copy_prev' in params:
         logging.warning("Deleting option start_from_copy_prev")
@@ -84,26 +70,6 @@ def fix_deprecated_learn2track_params(params):
         logging.warning("Deleting option weight_loss_with_angle")
         del params['dg_args']['weight_loss_with_angle']
 
-    # Added cnn options
-    if 'nb_cnn_filters' not in params:
-        logging.warning("Adding options for CNN")
-        params['nb_cnn_filters'] = None
-    if 'kernel_size' not in params:
-        logging.warning("Adding options for CNN")
-        params['kernel_size'] = None
-
-    # Neighborhood management modified
-    r = params['neighborhood_radius']
-    if isinstance(r, list):
-        logging.warning("Updating neighborhood radius management")
-        params['neighborhood_radius'] = len(r)
-        params['neighborhood_resolution'] = r[0]
-        if len(r) > 1:
-            if not np.all(np.diff(r) == r[0]):
-                raise ValueError("Now, neighborhood must have the same "
-                                 "resolution between each layer of "
-                                 "neighborhood. But got: {}".format(r))
-
     return params
 
 
@@ -111,48 +77,27 @@ def fix_other_checkpoint_params(checkpoint_state):
     """
     Updating non-specific params (trainer, batch loader, etc)
     """
-    # 1) Dataset params: better use a --new_hdf5 to fix.
-
-    # 2) Trainer params : nb_steps --> nb_segments
-    checkpoint_state['params_for_init'] = _replace(
-        checkpoint_state['params_for_init'], 'tracking_phase_nb_steps_init',
-        'tracking_phase_nb_segments_init')
-
-    # 3) Monitors: new var ever_max, ever_min
-    for k in checkpoint_state['current_states'].keys():
-        if isinstance(checkpoint_state['current_states'][k], dict) and \
-                'average_per_epoch' in checkpoint_state['current_states'][k].keys():
-            # Found a monitor
-            if 'ever_min' not in checkpoint_state['current_states'][k]:
-                logging.warning("Setting false min, max for monitor {}. "
-                                # But not sure this is ever used.... TODO
-                                .format(k))
-                checkpoint_state['current_states'][k]['ever_min'] = -np.inf
-                checkpoint_state['current_states'][k]['ever_max'] = np.inf
-
-    # 4) unclipped_grad_norm_monitor!
-    if 'unclipped_grad_norm_monitor_state' not in \
-            checkpoint_state['current_states']:
-        logging.warning("Copy grad norm monitor as fake unclipped grad norm "
-                        "monitor")
-        checkpoint_state['current_states']['unclipped_grad_norm_monitor_state'] = \
-            checkpoint_state['current_states']['grad_norm_monitor_state']
+    # Nothing to do for Transformer, I had not used it before updates.
+    # See l2t_update_deprecated_exp if I have issues.
 
     return checkpoint_state
 
 
 def fix_model_parameters_json_file(args):
     """
-    Updating this specific model's params (learn2track)
+    Updating this specific model's params (Transformers)
     """
 
     # 1) Loading params from checkpoint's latest model
     model_dir = os.path.join(args.experiment_path, 'checkpoint', 'model')
-    params = Learn2TrackModel._load_params(model_dir)
+    model_type = verify_which_model_in_path(model_dir)
+    print("Model's class: {}".format(model_type))
+    cls = find_transformer_class(model_type)
+    params = cls._load_params(model_dir)
 
     # 2) Loading params from best model
     model_dir = os.path.join(args.experiment_path, 'best_model')
-    params2 = Learn2TrackModel._load_params(model_dir)
+    params2 = cls._load_params(model_dir)
 
     # Verifying that they fit
     assert params == params2, ("Unexpected error. Parameters in the "
@@ -170,7 +115,7 @@ def fix_model_parameters_json_file(args):
     logging.debug("Loaded params:\n{}".format(format_dict_to_str(params)))
 
     # 3) Fixing params
-    params = fix_deprecated_learn2track_params(params)
+    params = fix_deprecated_transformers_params(params)
     print("\n\n----------------Fixed the model parameters ----------------\n"
           "Reformated model's params:\n " + format_dict_to_str(params))
 
@@ -188,9 +133,9 @@ def fix_model_parameters_json_file(args):
         json_file.write(json.dumps(params, indent=4, separators=(',', ': ')))
 
     # Verify that both models can be loaded
-    _ = Learn2TrackModel.load_model_from_params_and_state(
+    _ = cls.load_model_from_params_and_state(
         fixed_checkpoint_model_dir)
-    model = Learn2TrackModel.load_model_from_params_and_state(
+    model = cls.load_model_from_params_and_state(
         fixed_best_model_dir)
 
     return model
@@ -201,7 +146,7 @@ def fix_checkpoint(args, model):
 
     # Loading checkpoint
     experiments_path, experiment_name = os.path.split(args.experiment_path)
-    checkpoint_state = Learn2TrackTrainer.load_params_from_checkpoint(
+    checkpoint_state = TransformerTrainer.load_params_from_checkpoint(
         experiments_path, experiment_name)
 
     # Verify hdf5
@@ -251,7 +196,7 @@ def fix_checkpoint(args, model):
     batch_loader = DWIMLBatchLoaderOneInput.init_from_checkpoint(
             dataset, model, checkpoint_state['batch_loader_params'])
     experiments_path, experiment_name = os.path.split(args.out_experiment)
-    _ = Learn2TrackTrainer.init_from_checkpoint(
+    _ = TransformerTrainer.init_from_checkpoint(
         model, experiments_path, experiment_name,
         batch_sampler, batch_loader,
         checkpoint_state, new_patience=None, new_max_epochs=None,
@@ -274,7 +219,9 @@ def main():
     shutil.copytree(args.experiment_path, args.out_experiment)
 
     model = fix_model_parameters_json_file(args)
-    fix_checkpoint(args, model)
+
+    if args.experiment_path != args.out_experiment:
+        fix_checkpoint(args, model)
 
     print("Out experiment {} should now be usable!"
           .format(args.out_experiment))

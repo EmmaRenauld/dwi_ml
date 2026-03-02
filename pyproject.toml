@@ -76,5 +76,6 @@ l2t_visualize_weights_evolution = "dwi_ml.cli.l2t_visualize_weights_evolution:ma
 tt_resume_training_from_checkpoint = "dwi_ml.cli.tt_resume_training_from_checkpoint:main"
 tt_track_from_model = "dwi_ml.cli.tt_track_from_model:main"
 tt_train_model = "dwi_ml.cli.tt_train_model:main"
+tt_update_deprecated_exp = "dwi_ml.cli.tt_update_deprecated_exp:main"
 tt_visualize_loss = "dwi_ml.cli.tt_visualize_loss:main"
 tt_visualize_weights = "dwi_ml.cli.tt_visualize_weights:main"
