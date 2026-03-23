@@ -1,43 +1,78 @@
 Welcome to DWI_ML documentation!
 ================================
 
-This website is a guide to the github repository from the SCIL-VITAL organisation: https://github.com/scil-vital/dwi_ml/.
+This website is a guide to the github repository from the SCIL-VITAL organisation: https://github.com/scil-vital/dwi_ml/. DWI_ML is a toolkit for Diffusion Magnetic Resonance Imaging (dMRI) analysis
+using machine learning and deep learning methods. It is mostly focused on the tractography derivatives of dMRI.
+
+
+        .. image:: /_static/images/logo_dwi_ml_emma_avec_texte.png
+            :align: center
+            :width: 500
 
 In this doc, we will present you everything included in this library for you to become either a developer or a user. Note that to get a full understanding of every line of code, you can browse further in each section.
 
-Getting started
----------------
+On this page:
+
+    - :ref:`section_install`
+    - :ref:`section_users`
+    - :ref:`section_advanced_users`
+    - :ref:`section_developers`
+
+.. _section_install:
+
+1. Installing dwi_ml
+--------------------
 
     .. toctree::
         :maxdepth: 1
         :titlesonly:
-        :caption: Getting started
+        :caption: Installing dwi_ml
 
         getting_started
 
-Explanations for users of pre-trained models
---------------------------------------------
+.. _section_users:
+
+2. Explanations for users of pre-trained models (Learn2track, Transformers)
+---------------------------------------------------------------------------
 
 Pages in this section explain how to use our scripts to use our pre-trained models.
 
-- **Models**: If you want to use our pre-trained models, you may contact us for access to the models learned weights. They will be available online once publications are accepted.
+- **1. Downloading models**: If you want to use our pre-trained models, you may contact us for access to the models learned weights. They will be available online once publications are accepted.
 
-- **Using hdf5**: In most cases, data must be organized correctly as a hdf5 before usage. See our page :ref:`hdf5_usage` for an explanation.
+    - :ref:`our_models`
+        - :ref:`tractography_models`
+        - :ref:`denoising_models`
 
-    .. toctree::
-        :maxdepth: 2
-        :caption: Explanations for users (pre-trained)
+- **2. Organizing your data**: In most cases, data must be organized correctly as a hdf5 before usage. Follow the link below for an explanation.
 
-        for_users/our_models
-        for_users/hdf5
-        for_users/tracking
+    - :ref:`hdf5_usage`
+
+- **3. Using our models to perform tractography**: Use our models to track on your own subjects!
+
+    - :ref:`user_tracking`
+
+.. --------------------Hidden toctree: ---------------
 
 
-Explanations for users of pre-coded models
-------------------------------------------
+.. toctree::
+    :maxdepth: 2
+    :hidden:
+    :caption: Explanations for users (pre-trained)
+
+    for_users/models/our_models
+    for_users/hdf5
+    for_users/tracking
+
+------------------------------
+
+.. _section_advanced_users:
+
+3. Explanations for advanced users: train a model with your own hyperparameters
+-------------------------------------------------------------------------------
 
 Pages in this section are useful if you want to train a model based on pre-existing code, such as Learn2track or TractographyTransformers, using your favorite set of hyperparameters.
 
+(Improved documentation coming soon!)
 
     .. toctree::
         :maxdepth: 2
@@ -46,28 +81,45 @@ Pages in this section are useful if you want to train a model based on pre-exist
         for_users/from_start_to_finish
         for_users/visu_logs
 
-Explanations for developers
----------------------------
+.. _section_developers:
+
+4. Explanations for developers: create your own model
+-----------------------------------------------------
 
 Page in this section explain more in details how the code is implemented in python.
 
-- **Models**: The first aspect to explore are our models. Discover how you can create your model to fit with our structure. Many parent classes are available for you: if your model inherits from them, they will have access to everything each one offers. For instance, some models have instructions on how to receive inputs from MRI data, prepare inputs in a neighborhood, and use embedding. Other models have access to many options of loss functions for the context of tractography (cosine similarity, classification, Gaussian loss, Fisher von Mises, etc.).
+- **1. Create your models**: The first aspect to explore are our models. Discover how you can create your model to fit with our structure. Many parent classes are available for you: if your model inherits from them, they will have access to everything each one offers. For instance, some models have instructions on how to receive inputs from MRI data, prepare inputs in a neighborhood, and use embedding. Other models have access to many options of loss functions for the context of tractography (cosine similarity, classification, Gaussian loss, Fisher von Mises, etc.).
 
-- **Using hdf5**: Our library has been organized to use data in the hdf5 format. Our hdf5 data organization should probably be enough for your needs (see explanations on :ref:`hdf5_usage`), but for more
+    - :ref:`create_your_model`
 
-- **Training a model**: Then, take a look at how we have implemented our trainers for an efficient management of heavy data.
+- **2. Explore our hdf5 organization**: Our library has been organized to use data in the hdf5 format. Our hdf5 data organization should probably be enough for your needs.
 
-- **Using your trained models**: Discover our objects allowing to perform a full tractography from a tractography-model.
+    - :ref:`hdf5_usage`
+    - :ref:`creating_hdf5`
 
+- **3. Train your model**: Take a look at how we have implemented our trainers for an efficient management of heavy data. Note that our trainer uses Data Management classes such as our BathLoader and BatchSampler. See below for more information.
 
-    .. toctree::
-        :maxdepth: 1
-        :caption: Explanations for developers
+    - :ref:`trainers`
+    - :ref:`trainers_details`
+    - :ref:`data_management_index`
 
-        for_developers/models/index
-        for_developers/hdf5/advanced_hdf5_organization
-        for_developers/training/training
-        for_developers/training/trainers_details
-        for_developers/data_management/index
-        for_developers/testing/general_testing
-        for_developers/testing/tracking_objects
+- **4. Use your trained model**: Discover our objects allowing to perform a full tractography from a tractography-model.
+
+    - :ref:`model_testing`
+    - :ref:`user_tracking`
+    - :ref:`tracking`
+
+.. --------------------Hidden toctree: ---------------
+
+.. toctree::
+    :maxdepth: 1
+    :caption: Explanations for developers
+    :hidden:
+
+    for_developers/models/index
+    for_developers/hdf5/advanced_hdf5_organization
+    for_developers/training/training
+    for_developers/training/trainers_details
+    for_developers/data_management/index
+    for_developers/testing/general_testing
+    for_developers/testing/tracking_objects

@@ -1,3 +1,4 @@
+.. _trainers_details:
 
 Trainers: the code explained
 ============================

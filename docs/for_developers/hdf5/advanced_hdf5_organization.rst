@@ -1,4 +1,4 @@
-.. _ref_creating_hdf5:
+.. _creating_hdf5:
 
 The hdf5 structure
 ==================

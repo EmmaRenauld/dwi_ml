@@ -11,16 +11,12 @@ DWI_ML
 .. image:: https://img.shields.io/badge/License-MIT-yellow.svg
   :target: https://github.com/scil-vital/dwi_ml/blob/master/LICENSE
 
-Welcome to the `Sherbrooke Connectivity Imaging Lab (SCIL)`_ and
-`Videos & Images Theory and Analytics Laboratory (VITAL)`_ joint DWI_ML
-toolkit !
+Welcome to the `SCIL`_ and `VITAL`_ joint DWI_ML toolkit !
 
-Links
-=====
+Documentation
+=============
 
-* `Getting started: installation and download <https://dwi-ml.readthedocs.io/en/latest/getting_started.html>`_
-* `Complete documentation with a step-by-step process explanation <https://dwi-ml.readthedocs.io/en/latest/>`_
-* `Contribute/Submit a patch <https://github.com/scil-vital/dwi_ml/blob/master/CONTRIBUTING.rst>`_
+* For the full documentation, including installation and usage, see here: https://dwi-ml.readthedocs.io/en/latest/.
 * `Issue tracking <https://github.com/scil-vital/dwi_ml/issues>`_
 
 About
@@ -40,11 +36,10 @@ file.
 Citation
 ========
 
-If you use DWI_ML in your dMRI data analysis, please cite the toolkit and
-provide a link to it.
+If you use DWI_ML in your dMRI data analysis, please cite the toolkit and provide a link to it.
 
 
 .. Links
 .. Involved labs
-.. _`Sherbrooke Connectivity Imaging Lab (SCIL)`: http://scil.dinf.usherbrooke.ca
-.. _`Videos & Images Theory and Analytics Laboratory (VITAL)`: http://vital.dinf.usherbrooke.ca
+.. _`SCIL`: http://scil.dinf.usherbrooke.ca
+.. _`VITAL`: http://vital.dinf.usherbrooke.ca

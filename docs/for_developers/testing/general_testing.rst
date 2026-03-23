@@ -1,3 +1,5 @@
+.. _model_testing:
+
 General testing of a model
 --------------------------
 

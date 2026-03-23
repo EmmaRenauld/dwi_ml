@@ -4,7 +4,7 @@ Getting started: download and installation
 Downloading dwi_ml
 ******************
 
-To use the DWI_ML toolkit you will need to clone the repository and install the required dependencies::
+To use the DWI_ML toolkit you will need to clone the `GitHub repository <https://github.com/scil-vital/dwi_ml>`_ and install the required dependencies::
 
    git clone https://github.com/scil-vital/dwi_ml.git
 

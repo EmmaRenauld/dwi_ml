@@ -68,3 +68,7 @@ footer {
 .rst-content li {
     padding: 0.1em 0;
 }
+
+dt {
+    margin-bottom: 0 !important;
+}

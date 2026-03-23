@@ -1,3 +1,5 @@
+.. _create_your_model:
+
 Create your own model
 =====================
 

@@ -1,17 +1,7 @@
-.. _our_models:
-
-Our models
-==========
-
-Our library currently only offers two models, both for the task of tracking in the brain, but it could eventually hold models for other tasks.
-
-Denoising models
-----------------
-
-Coming soon: Autoencoder (AE) model!
+.. _tractography_models:
 
 Tractography models
--------------------
+===================
 
 For more explanation on how to use models for tracking, see :ref:`user_tracking`.
 
