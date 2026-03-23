@@ -275,7 +275,6 @@ class Learn2TrackModel(ModelWithPreviousDirections, ModelWithDirectionGetter,
 
         # ==== 0. Previous dirs.
         n_prev_dirs = None
-        copy_prev_dir = 0.0
         if self.nb_previous_dirs > 0:
             dirs = compute_directions(input_streamlines)
             if self.normalize_prev_dirs:
@@ -375,60 +374,6 @@ class Learn2TrackModel(ModelWithPreviousDirections, ModelWithDirectionGetter,
             return x, out_hidden_recurrent_states
         else:
             return x
-
-    def copy_prev_dir(self, dirs):
-        if 'regression' in self.dg_key:
-            # Regression: The latest previous dir will be used as skip
-            # connection on the output.
-            # Either take dirs and add [0, 0, 0] at each first position.
-            # Or use pre-computed:
-            copy_prev_dir = [torch.nn.functional.pad(cp, [0, 0, 1, 0])
-                             for cp in dirs]
-            copy_prev_dir = pack_sequence(copy_prev_dir)
-            copy_prev_dir = copy_prev_dir.data
-        elif self.dg_key == 'sphere-classification':
-            # Converting the input directions into classes the same way as
-            # during loss, but convert to one-hot.
-            # The first previous dir (0) converts to index 0.
-            if self.context == 'tracking':
-                if dirs[0].shape[0] == 0:
-                    copy_prev_dir = torch.zeros(
-                        len(dirs),
-                        len(self.direction_getter.torch_sphere.vertices),
-                        device=self.device)
-                else:
-                    # Take only the last point.
-                    dirs = [d[-1, :][None, :] for d in dirs]
-                    copy_prev_dir = convert_dirs_to_class(
-                        dirs, self.direction_getter.torch_sphere,
-                        smooth_labels=False, add_sos=False, add_eos=False,
-                        to_one_hot=True)
-                    copy_prev_dir = pack_sequence(copy_prev_dir)
-            else:
-                # Take all points.
-                copy_prev_dir = convert_dirs_to_class(
-                    dirs, self.direction_getter.torch_sphere,
-                    smooth_labels=False, add_sos=False, add_eos=False,
-                    to_one_hot=True)
-
-                # Add zeros as previous dir at the first position
-                copy_prev_dir = [torch.nn.functional.pad(cp, [0, 0, 1, 0])
-                                 for cp in copy_prev_dir]
-                copy_prev_dir = pack_sequence(copy_prev_dir)
-
-            # Making the one from one-hot important for the sigmoid.
-            copy_prev_dir = copy_prev_dir.data * 6.0
-
-        elif self.dg_key == 'smooth-sphere-classification':
-            raise NotImplementedError
-        elif 'gaussian' in self.dg_key:
-            # The mean of the gaussian = the previous dir
-            raise NotImplementedError
-        else:
-            # Fisher: not sure how to do that.
-            raise NotImplementedError
-
-        return copy_prev_dir
 
     def take_lines_in_hidden_state(self, hidden_states, lines_to_keep):
         """
