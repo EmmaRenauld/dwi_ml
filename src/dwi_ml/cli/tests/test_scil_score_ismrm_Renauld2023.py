@@ -4,7 +4,7 @@ import os
 import subprocess
 import tempfile
 
-from dwi_ml.unit_tests.utils.data_and_models_for_tests import fetch_testing_data
+from dwi_ml.general.unit_tests.utils.data_and_models_for_tests import fetch_testing_data
 
 data_dir = fetch_testing_data()
 tmp_dir = tempfile.TemporaryDirectory()

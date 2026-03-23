@@ -20,12 +20,12 @@ from dipy.io.streamline import save_tractogram
 from scilpy.io.utils import assert_inputs_exist, assert_outputs_exist, \
     add_overwrite_arg
 
-from dwi_ml.data.processing.streamlines.data_augmentation import \
+from dwi_ml.general.data.processing.streamlines.data_augmentation import \
     resample_or_compress
-from dwi_ml.data.processing.utils import add_noise_to_tensor
-from dwi_ml.testing.utils import add_args_testing_subj_hdf5, \
+from dwi_ml.general.data.processing.utils import add_noise_to_tensor
+from dwi_ml.general.testing.utils import add_args_testing_subj_hdf5, \
     prepare_dataset_one_subj
-from dwi_ml.training.utils.batch_loaders import add_args_batch_loader
+from dwi_ml.general.training.utils.batch_loaders import add_args_batch_loader
 
 
 def prepare_arg_parser():

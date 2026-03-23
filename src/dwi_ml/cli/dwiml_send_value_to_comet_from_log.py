@@ -15,7 +15,7 @@ import numpy as np
 from comet_ml import ExistingExperiment
 from scilpy.io.utils import assert_inputs_exist
 
-from dwi_ml.training.trainers import DWIMLTrainer
+from dwi_ml.general.training.trainers import DWIMLTrainer
 
 
 def _build_arg_parser():

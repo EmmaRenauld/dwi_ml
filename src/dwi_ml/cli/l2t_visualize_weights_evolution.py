@@ -15,7 +15,7 @@ import matplotlib.patches as patches
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 
-from dwi_ml.training.projects.learn2track_trainer import Learn2TrackTrainer
+from dwi_ml.projects.Learn2track.learn2track_trainer import Learn2TrackTrainer
 
 
 def prepare_arg_parser():

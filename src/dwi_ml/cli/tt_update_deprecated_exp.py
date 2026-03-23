@@ -15,17 +15,17 @@ import shutil
 
 import numpy as np
 
-from dwi_ml.training.utils.monitoring import BatchHistoryMonitor
+from dwi_ml.general.training.utils.monitoring import BatchHistoryMonitor
 import torch
 from dwi_ml.io_utils import verify_which_model_in_path
-from dwi_ml.models.projects.transformer_models import find_transformer_class
-from dwi_ml.training.projects.transformer_trainer import TransformerTrainer
+from dwi_ml.general.models.projects import find_transformer_class
+from dwi_ml.projects.Transformers.transformer_trainer import TransformerTrainer
 from scilpy.io.utils import add_verbose_arg
 
-from dwi_ml.data.dataset.utils import prepare_multisubjectdataset
-from dwi_ml.experiment_utils.prints import format_dict_to_str
-from dwi_ml.training.batch_loaders import DWIMLBatchLoaderOneInput
-from dwi_ml.training.batch_samplers import DWIMLBatchIDSampler
+from dwi_ml.general.data.dataset.utils import prepare_multisubjectdataset
+from dwi_ml.general.experiment_utils.prints import format_dict_to_str
+from dwi_ml.general.training.batch_loaders import DWIMLBatchLoaderOneInput
+from dwi_ml.general.training.batch_samplers import DWIMLBatchIDSampler
 
 
 def prepare_arg_parser():
@@ -253,7 +253,7 @@ def load_checkpoint_and_fix(args, model):
             dataset, model, checkpoint_state['batch_loader_params'])
     experiments_path, experiment_name = os.path.split(args.out_experiment)
     if experiments_path == '':
-        experiments_path = './'
+        experiments_path = '/'
 
     try:
         _ = TransformerTrainer.init_from_checkpoint(

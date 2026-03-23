@@ -20,16 +20,16 @@ from scilpy.tracking.utils import (add_seeding_options,
                                    verify_streamline_length_options,
                                    verify_seed_options, add_out_options)
 
-from dwi_ml.experiment_utils.prints import format_dict_to_str
-from dwi_ml.experiment_utils.timer import Timer
-from dwi_ml.models.projects.learn2track_model import Learn2TrackModel
-from dwi_ml.testing.utils import prepare_dataset_one_subj, \
+from dwi_ml.general.experiment_utils.prints import format_dict_to_str
+from dwi_ml.general.experiment_utils.timer import Timer
+from dwi_ml.projects.Learn2track.learn2track_model import Learn2TrackModel
+from dwi_ml.general.testing.utils import prepare_dataset_one_subj, \
     find_hdf5_associated_to_experiment
-from dwi_ml.tracking.projects.learn2track_tracker import RecurrentTracker
-from dwi_ml.tracking.tracking_mask import TrackingMask
-from dwi_ml.tracking.io_utils import (add_tracking_options,
-                                      prepare_seed_generator,
-                                      prepare_tracking_mask, track_and_save)
+from dwi_ml.projects.Learn2track.learn2track_tracker import RecurrentTracker
+from dwi_ml.general.tracking.tracking_mask import TrackingMask
+from dwi_ml.general.tracking.io_utils import (add_tracking_options,
+                                              prepare_seed_generator,
+                                              prepare_tracking_mask, track_and_save)
 
 
 # Also, after upgrading torch, I now have a lot of warnings:

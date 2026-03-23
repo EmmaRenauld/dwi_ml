@@ -5,16 +5,16 @@ import logging
 import h5py
 import nibabel as nib
 import numpy as np
-from dipy.io.stateful_tractogram import StatefulTractogram, Space, Origin
+from dipy.io.stateful_tractogram import StatefulTractogram
 from dipy.io.streamline import save_tractogram
 from matplotlib import pyplot as plt
 
 from scilpy.io.utils import assert_inputs_exist, assert_outputs_exist, \
     add_overwrite_arg, add_verbose_arg
 
-from dwi_ml.data.dataset.streamline_containers import \
+from dwi_ml.general.data.dataset.streamline_containers import \
     load_all_streamlines_from_hdf, load_streamlines_attributes_from_hdf
-from dwi_ml.data.processing.streamlines.post_processing import \
+from dwi_ml.general.data.processing.streamlines.post_processing import \
     prepare_figure_connectivity
 
 

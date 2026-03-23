@@ -11,7 +11,6 @@ import os
 # comet_ml not used, but comet_ml requires to be imported before torch.
 # See bug report here https://github.com/Lightning-AI/lightning/issues/5829
 # Importing now to solve issues later.
-import comet_ml
 
 # Also, after upgrading torch, I now have a lot of warnings:
 # FutureWarning: `torch.distributed.reduce_op` is deprecated, please use
@@ -27,21 +26,21 @@ import torch
 from scilpy.io.utils import (add_verbose_arg, assert_inputs_exist,
                              assert_outputs_exist)
 
-from dwi_ml.data.dataset.utils import prepare_multisubjectdataset
-from dwi_ml.experiment_utils.prints import format_dict_to_str
-from dwi_ml.experiment_utils.timer import Timer
+from dwi_ml.general.data.dataset.utils import prepare_multisubjectdataset
+from dwi_ml.general.experiment_utils.prints import format_dict_to_str
+from dwi_ml.general.experiment_utils.timer import Timer
 from dwi_ml.io_utils import add_memory_args
-from dwi_ml.models.projects.learn2track_model import Learn2TrackModel
-from dwi_ml.models.projects.learn2track_utils import add_model_args
-from dwi_ml.models.utils.direction_getters import check_args_direction_getter
-from dwi_ml.training.projects.learn2track_trainer import Learn2TrackTrainer
-from dwi_ml.training.utils.batch_samplers import (add_args_batch_sampler,
-                                                  prepare_batch_sampler)
-from dwi_ml.training.utils.batch_loaders import (add_args_batch_loader,
-                                                 prepare_batch_loader)
-from dwi_ml.training.utils.experiment import (
+from dwi_ml.projects.Learn2track.learn2track_model import Learn2TrackModel
+from dwi_ml.projects.Learn2track.learn2track_utils import add_model_args
+from dwi_ml.general.models.utils.direction_getters import check_args_direction_getter
+from dwi_ml.projects.Learn2track.learn2track_trainer import Learn2TrackTrainer
+from dwi_ml.general.training.utils.batch_samplers import (add_args_batch_sampler,
+                                                          prepare_batch_sampler)
+from dwi_ml.general.training.utils.batch_loaders import (add_args_batch_loader,
+                                                         prepare_batch_loader)
+from dwi_ml.general.training.utils.experiment import (
     add_mandatory_args_experiment_and_hdf5_path)
-from dwi_ml.training.utils.trainer import run_experiment, add_training_args, \
+from dwi_ml.general.training.utils.trainer import run_experiment, add_training_args, \
     format_lr
 
 

@@ -8,7 +8,7 @@ import numpy as np
 from scilpy.io.utils import assert_inputs_exist, assert_outputs_exist, \
     add_overwrite_arg
 
-from dwi_ml.data.hdf5.utils import format_nb_blocs_connectivity
+from dwi_ml.general.data.hdf5.utils import format_nb_blocs_connectivity
 
 
 def _build_arg_parser():

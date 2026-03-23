@@ -20,11 +20,11 @@ from scilpy.io.utils import assert_inputs_exist
 
 from dwi_ml.io_utils import (add_arg_existing_experiment_path,
                              verify_which_model_in_path)
-from dwi_ml.models.projects.transformer_models import find_transformer_class
-from dwi_ml.testing.testers import TesterOneInput
-from dwi_ml.testing.utils import add_args_testing_subj_hdf5
-from dwi_ml.testing.visu_loss import run_all_visu_loss
-from dwi_ml.testing.visu_loss_utils import prepare_args_visu_loss, visu_checks
+from dwi_ml.general.models.projects import find_transformer_class
+from dwi_ml.general.testing.testers import TesterOneInput
+from dwi_ml.general.testing.utils import add_args_testing_subj_hdf5
+from dwi_ml.general.testing.visu_loss import run_all_visu_loss
+from dwi_ml.general.testing.visu_loss_utils import prepare_args_visu_loss, visu_checks
 
 
 def prepare_argparser():

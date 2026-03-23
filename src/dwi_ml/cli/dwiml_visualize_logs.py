@@ -39,7 +39,7 @@ import numpy as np
 from scilpy.io.utils import (add_overwrite_arg, add_verbose_arg,
                              assert_outputs_exist)
 
-from dwi_ml.viz.logs_plots import visualize_logs
+from dwi_ml.general.viz.logs_plots import visualize_logs
 
 
 def _build_arg_parser():
