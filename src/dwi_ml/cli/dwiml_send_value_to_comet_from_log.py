@@ -32,10 +32,11 @@ def _build_arg_parser():
                    help="Comet.ml's metric name(s). Must contain the same "
                         "number of inputs as --logs.\n"
                         "If not set, we will suggest you the probable name(s) "
-                        "but we will not run the script.")
-    p.add_argument('--use_suggested_name', action='store_true',
-                   help="If set and --metric_name is not set, will run with "
-                        "the suggested name(s).")
+                        "but we will not run the script, unless you add "
+                        "--use_suggested_names")
+    p.add_argument('--use_suggested_names', action='store_true',
+                   help="If set and --metric_names is not set, guess the "
+                        "metric names.")
     p.add_argument('--use_best', action='store_true',
                    help="If set, uses only the best value in segment [0, t] "
                         "as value at time t. (Best = lowest).")
@@ -67,7 +68,7 @@ def main():
         if args.use_best:
             print("Not sure what to suggest you for --metric_name with "
                   "option --use_best. Probably 'best_loss'!?")
-            args.use_suggested_name = False
+            args.use_suggested_names = False
         else:
             for log in log_paths:
                 # Based on current implementation of things:
@@ -91,7 +92,7 @@ def main():
                 args.metric_names.append(metric_name)
 
         # Possibly stop now
-        if not args.use_suggested_name:
+        if not args.use_suggested_names:
             return
 
     # Verify

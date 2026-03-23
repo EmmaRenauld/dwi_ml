@@ -277,19 +277,6 @@ class AbstractTransformerModel(ModelWithNeighborhood, ModelWithDirectionGetter,
 
         return p
 
-    @classmethod
-    def _load_params(cls, model_dir):
-        params = super()._load_params(model_dir)
-
-        # d_model now a property method.
-        if 'd_model' in params:
-            if isinstance(cls, TransformerSrcOnlyModel):
-                params['input_embedded_size'] = params['d_model']
-
-            del params['d_model']
-
-        return params
-
     def set_context(self, context):
         # Training, validation: Used by trainer. Nothing special.
         # Tracking: Used by tracker. Returns only the last point.
@@ -713,55 +700,6 @@ class AbstractTransformerModelWithTarget(AbstractTransformerModel):
 
     def _run_main_layer_forward(self, data, masks, return_weights):
         raise NotImplementedError
-
-    def format_prev_dir_(self, dirs):
-        """
-        Format the previous direction at each point. (To add to output).
-        At first coordinate: unkown. Using 0,0,0.
-
-        If output is logits of classes: adding a one-hot vector with value
-        6 on the right index (because sigmoid(6) is big). Always using value
-        0 for the EOS class, if any.
-        """
-        if 'regression' in self.dg_key:
-            # Regression: The latest previous dir will be used as skip
-            # connection on the output.
-            # Either take dirs and add [0, 0, 0] at each first position.
-            # Or use pre-computed:
-            copy_prev_dirs = dirs
-        elif self.dg_key == 'sphere-classification':
-            # Converting the input directions into classes the same way as
-            # during loss, but convert to one-hot.
-            # The first previous dir (0) converts to index 0.
-
-            # Not necessarily the same class as previous dirs used as input to
-            # the decoder.
-            copy_prev_dirs = convert_dirs_to_class(
-                dirs, self.direction_getter.torch_sphere, smooth_labels=False,
-                add_sos=False, add_eos=False, to_one_hot=True)
-
-            # Not adding a EOS point, but adding a EOS class with value 0.
-            if self.direction_getter.add_eos:
-                copy_prev_dirs = [torch.nn.functional.pad(cp, [0, 1, 0, 0])
-                                  for cp in copy_prev_dirs]
-
-            # Making the one from one-hot important for the sigmoid.
-            copy_prev_dirs = [c * 6.0 for c in copy_prev_dirs]
-
-        elif self.dg_key == 'smooth-sphere-classification':
-            raise NotImplementedError
-        elif 'gaussian' in self.dg_key:
-            # The mean of the gaussian = the previous dir
-            raise NotImplementedError
-        else:
-            # Fisher: not sure how to do that.
-            raise NotImplementedError
-
-        # Add zeros as previous dir at the first position
-        copy_prev_dirs = [torch.nn.functional.pad(cp, [0, 0, 1, 0])
-                          for cp in copy_prev_dirs]
-
-        return copy_prev_dirs
 
     def _run_target_embedding(self, targets, use_padding, batch_max_len):
         targets = pad_and_stack_batch(targets, use_padding, batch_max_len)

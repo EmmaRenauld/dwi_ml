@@ -14,15 +14,18 @@ import os
 import shutil
 
 import numpy as np
+
+from dwi_ml.training.utils.monitoring import BatchHistoryMonitor
 import torch
+from dwi_ml.io_utils import verify_which_model_in_path
+from dwi_ml.models.projects.transformer_models import find_transformer_class
+from dwi_ml.training.projects.transformer_trainer import TransformerTrainer
 from scilpy.io.utils import add_verbose_arg
 
 from dwi_ml.data.dataset.utils import prepare_multisubjectdataset
 from dwi_ml.experiment_utils.prints import format_dict_to_str
-from dwi_ml.models.projects.learn2track_model import Learn2TrackModel
 from dwi_ml.training.batch_loaders import DWIMLBatchLoaderOneInput
 from dwi_ml.training.batch_samplers import DWIMLBatchIDSampler
-from dwi_ml.training.projects.learn2track_trainer import Learn2TrackTrainer
 
 
 def prepare_arg_parser():
@@ -57,19 +60,7 @@ def _remove(params, old_key):
 
 
 def fix_model_params(params):
-    # embedding_size --> embedded_size
-    params = _replace(params, 'prev_dirs_embedding_size',
-                     'prev_dirs_embedded_size')
-    params = _replace(params, 'input_embedding_size',
-                     'input_embedded_size')
-
-    # deleted size_ratio option
-    if 'input_embedding_size_ratio' in params:
-        assert params['input_embedding_size_ratio'] is None, \
-            ("Can't fix deprecated value 'inpute_embedded_size_ratio'; has no"
-             " new equivalent. I thought I never used it.")
-        logging.warning("Deleting option input_embedding_size_ratio")
-        del params['input_embedding_size_ratio']
+    print("\n--------------- In model params:")
 
     # deleted start_from_copy_prev
     params = _remove(params, 'start_from_copy_prev')
@@ -78,6 +69,12 @@ def fix_model_params(params):
     params['dg_args'] = _remove(params['dg_args'], 'compress_loss')
     params['dg_args'] = _remove(params['dg_args'], 'compress_eps')
     params['dg_args'] = _remove(params['dg_args'], 'weight_loss_with_angle')
+
+    # ------
+    # Even older models:
+    # ------
+    params = _replace(params, 'embedding_key_x', 'input_embedding_key')
+    params = _replace(params, 'd_model', 'input_embedded_size')  # NOT the same if TTST or TTO model, but I don't think I have any...
 
     # Added cnn options
     if 'nb_cnn_filters' not in params:
@@ -101,13 +98,12 @@ def fix_model_params(params):
 
     return params
 
-
-def fix_model_state(model_dir):
+def fix_model_state(cls, model_dir):
     print("\n--------------- In model state ():".format(model_dir))
-    model_state = Learn2TrackModel._load_state(model_dir)
-    model_state = _replace(model_state, 'input_embedding.linear.weight',
+    model_state = cls._load_state(model_dir)
+    model_state = _replace(model_state, 'embedding_layer_x.linear.weight', 
                            'input_embedding_layer.linear.weight')
-    model_state = _replace(model_state, 'input_embedding.linear.bias',
+    model_state = _replace(model_state, 'embedding_layer_x.linear.bias', 
                            'input_embedding_layer.linear.bias')
     torch.save(model_state, os.path.join(model_dir, "model_state.pkl"))
 
@@ -116,6 +112,9 @@ def fix_checkpoint_params(checkpoint_state):
     """
     Updating non-specific params (trainer, batch loader, etc)
     """
+    # Nothing to do for Transformer, I had not used it before updates.
+    # See l2t_update_deprecated_exp if I have issues.
+    print("\n--------------- In checkpoint params:")
     # 1) Dataset params: better use a --hdf5_path to fix.
 
     # 2) Trainer params : nb_steps --> nb_segments, no more lr_decrease_params
@@ -136,17 +135,15 @@ def fix_checkpoint_params(checkpoint_state):
                                 .format(k))
                 checkpoint_state['current_states'][k]['ever_min'] = -np.inf
                 checkpoint_state['current_states'][k]['ever_max'] = np.inf
-
-    # 4) unclipped_grad_norm_monitor!
-    if 'unclipped_grad_norm_monitor_state' not in \
-            checkpoint_state['current_states']:
-        logging.warning("Copy grad norm monitor as fake unclipped grad norm "
-                        "monitor")
-        checkpoint_state['current_states']['unclipped_grad_norm_monitor_state'] = \
-            checkpoint_state['current_states']['grad_norm_monitor_state']
+    
+    # New monitor
+    if 'unclipped_grad_norm_monitor_state' not in checkpoint_state['current_states']:
+        logging.warning("Adding a new monitor (unclipped_grad_norm)")
+        monitor = BatchHistoryMonitor('unclipped_grad_norm_monitor', 
+                                       weighted=False)
+        checkpoint_state['current_states'][monitor.name + '_state'] = monitor.get_state()
 
     return checkpoint_state
-
 
 def fix_checkpoint_rng_state(checkpoint_state):
     print("\n--------------- In checkpoint state:")
@@ -156,19 +153,21 @@ def fix_checkpoint_rng_state(checkpoint_state):
     return checkpoint_state
 
 
-
 def load_both_models_checkpoint_best_and_fix(args):
     """
-    Updating this specific model's params (learn2track)
+    Updating this specific model's params (Transformers)
     """
 
     # 1) Loading params from checkpoint's latest model
     model_dir = os.path.join(args.experiment_path, 'checkpoint', 'model')
-    params = Learn2TrackModel._load_params(model_dir)
+    model_type = verify_which_model_in_path(model_dir)
+    print("Model's class: {}".format(model_type))
+    cls = find_transformer_class(model_type)
+    params = cls._load_params(model_dir)
 
     # 2) Loading params from best model
     model_dir = os.path.join(args.experiment_path, 'best_model')
-    params2 = Learn2TrackModel._load_params(model_dir)
+    params2 = cls._load_params(model_dir)
 
     # Verifying that they fit
     assert params == params2, ("Unexpected error. Parameters in the "
@@ -204,14 +203,14 @@ def load_both_models_checkpoint_best_and_fix(args):
         json_file.write(json.dumps(params, indent=4, separators=(',', ': ')))
 
     # 5. Fixing model state
-    fix_model_state(fixed_checkpoint_model_dir)
-    fix_model_state(fixed_best_model_dir)
+    fix_model_state(cls, fixed_checkpoint_model_dir)
+    fix_model_state(cls, fixed_best_model_dir)
 
 
     # Verify that both models can be loaded
-    _ = Learn2TrackModel.load_model_from_params_and_state(
+    _ = cls.load_model_from_params_and_state(
         fixed_checkpoint_model_dir)
-    model = Learn2TrackModel.load_model_from_params_and_state(
+    model = cls.load_model_from_params_and_state(
         fixed_best_model_dir)
 
     return model
@@ -222,7 +221,7 @@ def load_checkpoint_and_fix(args, model):
 
     # Loading checkpoint
     experiments_path, experiment_name = os.path.split(args.experiment_path)
-    checkpoint_state = Learn2TrackTrainer.load_params_from_checkpoint(
+    checkpoint_state = TransformerTrainer.load_params_from_checkpoint(
         experiments_path, experiment_name)
 
     # Verify hdf5
@@ -257,7 +256,7 @@ def load_checkpoint_and_fix(args, model):
         experiments_path = './'
 
     try:
-        _ = Learn2TrackTrainer.init_from_checkpoint(
+        _ = TransformerTrainer.init_from_checkpoint(
             model, experiments_path, experiment_name,
             batch_sampler, batch_loader,
             checkpoint_state, new_patience=None, new_max_epochs=None,
@@ -276,12 +275,12 @@ def load_checkpoint_and_fix(args, model):
             print("Saving new state as ", checkpoint_path)
             torch.save(checkpoint_state, checkpoint_path)
             checkpoint_state = torch.load(checkpoint_path, weights_only=False)
-
-            _ = Learn2TrackTrainer.init_from_checkpoint(
-                model, experiments_path, experiment_name,
-                batch_sampler, batch_loader,
-                checkpoint_state, new_patience=None, new_max_epochs=None,
-                log_level='WARNING')
+    
+            _ = TransformerTrainer.init_from_checkpoint(
+                    model, experiments_path, experiment_name,
+                    batch_sampler, batch_loader,
+                    checkpoint_state, new_patience=None, new_max_epochs=None,
+                    log_level='WARNING')
         else:
             raise RuntimeError(e)
 
@@ -291,7 +290,7 @@ def main():
     args = p.parse_args()
 
     # General logging (ex, scilpy: Warning)
-    logging.getLogger().setLevel(level=logging.WARNING)
+    logging.getLogger().setLevel(args.verbose)
 
     if not os.path.exists(args.experiment_path):
         raise FileNotFoundError("Experiment not found ({})."
