@@ -22,13 +22,14 @@ from scilpy.io.utils import add_verbose_arg
 
 from dwi_ml.general.data.dataset.utils import prepare_multisubjectdataset
 from dwi_ml.general.experiment_utils.timer import Timer
-from dwi_ml.io_utils import verify_which_model_in_path
-from dwi_ml.general.models.projects import find_transformer_class
+from dwi_ml.general.io_utils import verify_which_model_in_path
 from dwi_ml.general.training.batch_loaders import DWIMLBatchLoaderOneInput
 from dwi_ml.general.training.batch_samplers import DWIMLBatchIDSampler
-from dwi_ml.projects.Transformers.transformer_trainer import TransformerTrainer
 from dwi_ml.general.training.utils.experiment import add_args_resuming_experiment
 from dwi_ml.general.training.utils.trainer import run_experiment
+
+from dwi_ml.projects.Transformers.transformer_models import find_transformer_class
+from dwi_ml.projects.Transformers.transformer_trainer import TransformerTrainer
 
 
 def prepare_arg_parser():

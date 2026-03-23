@@ -29,12 +29,12 @@ We strongly recommend working in a virtual environment to install all dependenci
 
 **Creating a Comet account**:
 
-- The toolkit uses `comet_ml <https://www.comet.ml/docs/python-sdk/advanced/>`_. It is a python library that creates an "Experiment" (ex, training a model with a given set of hyperparameters) which automatically creates many types of logs online. It requires user to set an API key in $HOME/.comet.config with contents:
+- The toolkit uses `comet_ml <https://www.comet.ml/docs/python-sdk/advanced/>`_. It is a python library that creates an "Experiment" (ex, training a model with a given set of hyperparameters) which automatically creates many types of logs online. It requires user to set an API key in $HOME/.comet.config with contents::
 
         | [comet]
         | api_key=YOUR-API-KEY
 
-Alternatively, you can add it as an environment variable. Add this to your $HOME/.bashrc file.
+Alternatively, you can add it as an environment variable. Add this to your $HOME/.bashrc file::
 
         | export COMET_API_KEY=YOUR-API-KEY
 

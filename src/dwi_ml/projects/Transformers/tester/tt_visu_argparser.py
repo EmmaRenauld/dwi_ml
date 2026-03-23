@@ -54,7 +54,7 @@ import argparse
 from scilpy.io.utils import (add_overwrite_arg, add_reference_arg,
                              add_verbose_arg)
 
-from dwi_ml.io_utils import add_arg_existing_experiment_path, add_memory_args
+from dwi_ml.general.io_utils import add_arg_existing_experiment_path, add_memory_args
 from dwi_ml.general.testing.utils import add_args_testing_subj_hdf5
 
 

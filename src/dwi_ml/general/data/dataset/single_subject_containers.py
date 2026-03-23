@@ -2,9 +2,10 @@
 import logging
 from typing import List, Union
 
-from dwi_ml.general.data.dataset.mri_data_containers import (LazyMRIData, MRIData,
-                                                             MRIDataAbstract)
-from dwi_ml.general.data.dataset.streamline_containers import LazySFTData, SFTData
+from dwi_ml.general.data.dataset.mri_data_containers import (
+    LazyMRIData, MRIData, MRIDataAbstract)
+from dwi_ml.general.data.dataset.streamline_containers import (
+    LazySFTData, SFTData)
 from dwi_ml.general.data.dataset.checks_for_groups import prepare_groups_info
 
 logger = logging.getLogger('dataset_logger')

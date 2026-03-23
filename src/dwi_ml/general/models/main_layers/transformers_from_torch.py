@@ -17,7 +17,7 @@ from torch import Tensor
 from torch.nn import Transformer, TransformerDecoder, TransformerEncoder
 from torch.nn.modules.transformer import _get_seq_len, _detect_is_causal_mask
 
-from dwi_ml.general.models.projects import \
+from dwi_ml.general.models.main_layers.transformer_sublayers import \
     ModifiedTransformerDecoderLayer, ModifiedTransformerEncoderLayer
 
 logger = logging.getLogger('model_logger')

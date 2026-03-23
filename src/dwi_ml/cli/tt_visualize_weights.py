@@ -7,10 +7,10 @@ from os.path import dirname
 
 from scilpy.io.utils import assert_outputs_exist
 
-from dwi_ml.general.testing.projects import \
+from dwi_ml.projects.Transformers.tester.tt_visu_argparser import \
     build_argparser_transformer_visu
-from dwi_ml.general.testing.projects import tt_visualize_weights_main
-from dwi_ml.general.testing.projects import get_out_dir_and_create, \
+from dwi_ml.projects.Transformers.tester.tt_visu_main import tt_visualize_weights_main
+from dwi_ml.projects.Transformers.tester.tt_visu_utils import get_out_dir_and_create, \
     get_config_filename
 
 

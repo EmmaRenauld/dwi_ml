@@ -7,14 +7,16 @@ import numpy as np
 import torch
 from torch import Tensor
 
-from dwi_ml.general.data.dataset.multi_subject_containers import MultisubjectSubset
+from dwi_ml.general.data.dataset.multi_subject_containers import \
+    MultisubjectSubset
 from dwi_ml.general.data.processing.volume.interpolation import \
     interpolate_volume_in_neighborhood
 from dwi_ml.general.data.processing.space.neighborhood import \
     prepare_neighborhood_vectors
-from dwi_ml.general.models.main_layers.direction_getter_models import keys_to_direction_getters
-from dwi_ml.general.models.main_layers.embeddings import (keys_to_embeddings, NNEmbedding,
-                                                          NoEmbedding)
+from dwi_ml.general.models.main_layers.direction_getter_models import \
+    keys_to_direction_getters
+from dwi_ml.general.models.main_layers.embeddings import (
+    keys_to_embeddings, NNEmbedding, NoEmbedding)
 from dwi_ml.general.models.main_models.main_abstract_model import MainModelAbstract
 from dwi_ml.general.models.utils.direction_getters import add_direction_getter_args
 

@@ -19,9 +19,10 @@ from scilpy.io.utils import add_verbose_arg
 
 from dwi_ml.general.data.dataset.utils import prepare_multisubjectdataset
 from dwi_ml.general.experiment_utils.prints import format_dict_to_str
-from dwi_ml.projects.Learn2track.learn2track_model import Learn2TrackModel
 from dwi_ml.general.training.batch_loaders import DWIMLBatchLoaderOneInput
 from dwi_ml.general.training.batch_samplers import DWIMLBatchIDSampler
+
+from dwi_ml.projects.Learn2track.learn2track_model import Learn2TrackModel
 from dwi_ml.projects.Learn2track.learn2track_trainer import Learn2TrackTrainer
 
 

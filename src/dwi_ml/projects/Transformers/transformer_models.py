@@ -14,11 +14,11 @@ from dwi_ml.general.data.processing.streamlines.post_processing import \
     compute_directions
 from dwi_ml.general.data.spheres import TorchSphere
 from dwi_ml.general.models.main_layers.embeddings import keys_to_embeddings
-from dwi_ml.general.models.main_models.main_models import (ModelWithDirectionGetter,
-                                                           ModelWithNeighborhood,
-                                                           ModelWithOneInput)
-from dwi_ml.general.models.main_layers.positional_encoding import keys_to_positional_encodings
-from dwi_ml.general.models.utils.transformers_from_torch import (
+from dwi_ml.general.models.main_models.main_models import (
+    ModelWithDirectionGetter, ModelWithNeighborhood, ModelWithOneInput)
+from dwi_ml.general.models.main_layers.positional_encoding import \
+    keys_to_positional_encodings
+from dwi_ml.general.models.main_layers.transformers_from_torch import (
     ModifiedTransformer,
     ModifiedTransformerEncoder, ModifiedTransformerEncoderLayer,
     ModifiedTransformerDecoder, ModifiedTransformerDecoderLayer)

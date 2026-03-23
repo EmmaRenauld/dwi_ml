@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 import torch
 
 from dwi_ml.general.experiment_utils.prints import format_dict_to_str
-from dwi_ml.io_utils import add_resample_or_compress_arg
+from dwi_ml.general.io_utils import add_resample_or_compress_arg
 
 logger = logging.getLogger('model_logger')
 

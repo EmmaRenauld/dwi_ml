@@ -3,7 +3,7 @@ import logging
 
 from torch import isnan, set_printoptions
 
-from dwi_ml.general.models.projects import (
+from dwi_ml.projects.Transformers.transformer_models import (
     OriginalTransformerModel, TransformerSrcAndTgtModel, TransformerSrcOnlyModel)
 from dwi_ml.general.unit_tests.utils.data_and_models_for_tests import create_test_batch_2lines_4features
 

@@ -16,8 +16,8 @@ from dwi_ml.general.data.dataset.checks_for_groups import prepare_groups_info
 from dwi_ml.general.data.dataset.mri_data_containers import MRIDataAbstract
 from dwi_ml.general.data.dataset.subjectdata_list_containers import (
     LazySubjectsDataList, SubjectsDataList)
-from dwi_ml.general.data.dataset.single_subject_containers import (LazySubjectData,
-                                                                   SubjectData)
+from dwi_ml.general.data.dataset.single_subject_containers import (
+    LazySubjectData, SubjectData)
 
 logger = logging.getLogger('dataset_logger')
 

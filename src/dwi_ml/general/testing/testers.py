@@ -7,8 +7,8 @@ from tqdm import tqdm
 
 from dwi_ml.general.data.processing.streamlines.data_augmentation import \
     resample_or_compress
-from dwi_ml.general.models.main_models.main_models import (ModelWithOneInput,
-                                                           ModelWithDirectionGetter)
+from dwi_ml.general.models.main_models.main_models import (
+    ModelWithOneInput, ModelWithDirectionGetter)
 from dwi_ml.general.testing.utils import prepare_dataset_one_subj
 
 logger = logging.getLogger('tester_logger')

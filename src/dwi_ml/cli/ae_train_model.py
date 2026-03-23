@@ -20,7 +20,7 @@ from scilpy.io.utils import (assert_inputs_exist, assert_outputs_exist,
 from dwi_ml.general.data.dataset.utils import prepare_multisubjectdataset
 from dwi_ml.general.experiment_utils.prints import format_dict_to_str
 from dwi_ml.general.experiment_utils.timer import Timer
-from dwi_ml.io_utils import add_memory_args
+from dwi_ml.general.io_utils import add_memory_args
 from dwi_ml.projects.AE.ae_models import ModelAE
 from dwi_ml.general.training.trainers import DWIMLTrainer
 from dwi_ml.general.training.utils.batch_samplers import (add_args_batch_sampler,

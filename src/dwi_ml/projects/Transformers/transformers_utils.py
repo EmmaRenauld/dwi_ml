@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from dwi_ml.general.models.main_layers.positional_encoding import (
     keys_to_positional_encodings)
-from dwi_ml.general.models.projects import AbstractTransformerModel
+from dwi_ml.projects.Transformers.transformer_models import AbstractTransformerModel
 
 sphere_choices = ['symmetric362', 'symmetric642', 'symmetric724',
                   'repulsion724', 'repulsion100', 'repulsion200']

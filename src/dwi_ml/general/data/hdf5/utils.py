@@ -2,7 +2,7 @@
 from argparse import ArgumentParser
 from typing import List
 
-from dwi_ml.io_utils import add_resample_or_compress_arg
+from dwi_ml.general.io_utils import add_resample_or_compress_arg
 
 
 def format_nb_blocs_connectivity(connectivity_nb_blocs) -> List:

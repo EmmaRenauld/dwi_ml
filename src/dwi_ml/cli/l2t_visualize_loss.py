@@ -16,12 +16,13 @@ warnings.filterwarnings("ignore",
 
 import torch
 
-from dwi_ml.io_utils import add_arg_existing_experiment_path
-from dwi_ml.projects.Learn2track.learn2track_model import Learn2TrackModel
+from dwi_ml.general.io_utils import add_arg_existing_experiment_path
 from dwi_ml.general.testing.testers import TesterOneInput
 from dwi_ml.general.testing.utils import add_args_testing_subj_hdf5
 from dwi_ml.general.testing.visu_loss import run_all_visu_loss
 from dwi_ml.general.testing.visu_loss_utils import prepare_args_visu_loss, visu_checks
+
+from dwi_ml.projects.Learn2track.learn2track_model import Learn2TrackModel
 
 
 def prepare_argparser():

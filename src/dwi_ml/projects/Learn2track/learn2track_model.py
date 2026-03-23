@@ -6,11 +6,10 @@ import numpy as np
 import torch
 from torch.nn.utils.rnn import invert_permutation, PackedSequence, pack_sequence
 
-from dwi_ml.general.data.processing.space.neighborhood import unflatten_neighborhood
-from dwi_ml.general.data.processing.streamlines.post_processing import \
-    compute_directions, normalize_directions, compute_n_previous_dirs
-from dwi_ml.general.data.processing.streamlines.sos_eos_management import \
-    convert_dirs_to_class
+from dwi_ml.general.data.processing.space.neighborhood import \
+    unflatten_neighborhood
+from dwi_ml.general.data.processing.streamlines.post_processing import (
+    compute_directions, normalize_directions, compute_n_previous_dirs)
 from dwi_ml.general.models.main_layers.embeddings import NoEmbedding
 from dwi_ml.general.models.main_models.main_models import (
     ModelWithPreviousDirections, ModelWithDirectionGetter,

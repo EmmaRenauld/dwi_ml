@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import logging
 
-from dwi_ml.general.data.dataset.multi_subject_containers import MultiSubjectDataset
+from dwi_ml.general.data.dataset.multi_subject_containers import \
+    MultiSubjectDataset
 from dwi_ml.general.experiment_utils.timer import Timer
 
 

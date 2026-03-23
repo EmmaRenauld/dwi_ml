@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from dwi_ml.general.models.projects import AbstractTransformerModel
+from dwi_ml.projects.Transformers.transformer_models import AbstractTransformerModel
 from dwi_ml.general.tracking.tracker import (
     DWIMLTrackerOneInput, DWIMLTrackerFromWholeStreamline)
 

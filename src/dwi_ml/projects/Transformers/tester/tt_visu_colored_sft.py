@@ -9,7 +9,7 @@ from dipy.io.streamline import save_tractogram
 
 from scilpy.viz.color import get_lookup_table
 
-from dwi_ml.general.testing.projects import (
+from dwi_ml.projects.Transformers.tester.tt_visu_utils import (
     get_visu_params_from_options,
     prepare_projections_from_options)
 

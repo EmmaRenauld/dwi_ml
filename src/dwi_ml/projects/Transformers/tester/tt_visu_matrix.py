@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from dwi_ml.general.testing.projects import (
+from dwi_ml.projects.Transformers.tester.tt_visu_utils import (
     get_visu_params_from_options,
     prepare_projections_from_options)
 

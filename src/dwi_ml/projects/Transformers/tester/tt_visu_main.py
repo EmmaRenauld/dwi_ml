@@ -18,15 +18,15 @@ from matplotlib import pyplot as plt
 from scilpy.io.streamlines import load_tractogram_with_reference
 from scilpy.io.utils import assert_inputs_exist, assert_outputs_exist
 
-from dwi_ml.io_utils import verify_which_model_in_path
-from dwi_ml.general.models.projects import find_transformer_class
-from dwi_ml.general.testing.projects import (
+from dwi_ml.general.io_utils import verify_which_model_in_path
+from dwi_ml.projects.Transformers.transformer_models import find_transformer_class
+from dwi_ml.projects.Transformers.tester.tt_visu_bertviz import (
     encoder_decoder_show_head_view, encoder_decoder_show_model_view,
     encoder_show_model_view, encoder_show_head_view)
-from dwi_ml.general.testing.projects import (
+from dwi_ml.projects.Transformers.tester.tt_visu_colored_sft import (
     color_sft_duplicate_lines, color_sft_x_y_projections)
-from dwi_ml.general.testing.projects import show_model_view_as_imshow
-from dwi_ml.general.testing.projects import (
+from dwi_ml.projects.Transformers.tester.tt_visu_matrix import show_model_view_as_imshow
+from dwi_ml.projects.Transformers.tester.tt_visu_utils import (
     prepare_encoder_tokens, prepare_decoder_tokens,
     reshape_unpad_rescale_attention, resample_attention_one_line,
     get_out_dir_and_create)

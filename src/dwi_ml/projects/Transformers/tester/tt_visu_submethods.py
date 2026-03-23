@@ -13,9 +13,9 @@ from skimage.measure import block_reduce
 from scilpy.io.streamlines import load_tractogram_with_reference
 from scilpy.tractograms.streamline_operations import \
     resample_streamlines_step_size
-from scilpy.utils.streamlines import compress_sft
+from scilpy.tractograms.tractogram_operations import compress_sft
 
-from dwi_ml.general.models.projects import AbstractTransformerModel
+from dwi_ml.projects.Transformers.transformer_models import AbstractTransformerModel
 from dwi_ml.general.testing.utils import prepare_dataset_one_subj
 
 # Currently, with our quite long sequences compared to their example, this
@@ -258,7 +258,7 @@ def tto_show_head_view(encoder_attention, decoder_attention, cross_attention,
               encoder_tokens=encoder_tokens, decoder_tokens=decoder_tokens)
 
 
-def show_model_view_as_imshow(attention, tokens_x, tokens_y=None):
+def _show_model_view_as_imshow(attention, tokens_x, tokens_y=None):
     torch.set_printoptions(precision=2, sci_mode=False, linewidth=150)
 
     nb_layers = len(attention)
@@ -328,14 +328,14 @@ def tto_show_model_view(encoder_attention, decoder_attention, cross_attention,
                        decoder_tokens=decoder_tokens)
     else:
         print("ENCODER ATTENTION: ")
-        show_model_view_as_imshow(encoder_attention,
-                                  encoder_tokens, encoder_tokens)
+        _show_model_view_as_imshow(encoder_attention,
+                                   encoder_tokens, encoder_tokens)
         print("DECODER ATTENTION: ")
-        show_model_view_as_imshow(decoder_attention,
-                                  decoder_tokens, decoder_tokens)
+        _show_model_view_as_imshow(decoder_attention,
+                                   decoder_tokens, decoder_tokens)
         print("CROSS ATTENTION: ")
-        show_model_view_as_imshow(cross_attention,
-                                  encoder_tokens, decoder_tokens)
+        _show_model_view_as_imshow(cross_attention,
+                                   encoder_tokens, decoder_tokens)
 
 
 def ttst_show_model_view(encoder_attention, tokens):
@@ -354,4 +354,4 @@ def ttst_show_model_view(encoder_attention, tokens):
 
     else:
         print("ENCODER ATTENTION: ")
-        show_model_view_as_imshow(encoder_attention, tokens)
+        _show_model_view_as_imshow(encoder_attention, tokens)
