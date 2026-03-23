@@ -13,6 +13,9 @@ import logging
 import os
 import shutil
 
+import numpy as np
+
+from dwi_ml.training.utils.monitoring import BatchHistoryMonitor
 import torch
 from dwi_ml.io_utils import verify_which_model_in_path
 from dwi_ml.models.projects.transformer_models import find_transformer_class
@@ -32,7 +35,7 @@ def prepare_arg_parser():
                    help='Name for the experiment.')
     p.add_argument('out_experiment',
                    help="Name of the fixed experiment.")
-    p.add_argument('--new_hdf5',
+    p.add_argument('--hdf5_path',
                    help="Required only if previous hdf5 has been moved.")
 
     add_verbose_arg(p)
@@ -46,44 +49,111 @@ def _replace(params, old_key, new_key):
                         .format(old_key, new_key))
         params[new_key] = params[old_key]
         del params[old_key]
-    else:
-        logging.warning("Expected to find deprecated key {} (to be replaced "
-                        "by {}), but did not find it. Skipping."
-                        .format(old_key, new_key))
     return params
 
 
-def fix_deprecated_transformers_params(params):
+def _remove(params, old_key):
+    if old_key in params:
+        logging.warning("Deleting option {}".format(old_key))
+        del params[old_key]
+    return params
+
+
+def fix_model_params(params):
+    print("\n--------------- In model params:")
+
     # deleted start_from_copy_prev
-    if 'start_from_copy_prev' in params:
-        logging.warning("Deleting option start_from_copy_prev")
-        del params['start_from_copy_prev']
+    params = _remove(params, 'start_from_copy_prev')
 
     # deleted options compress_loss, weight_loss_with_angle (in dg)
-    if 'compress_loss' in params['dg_args']:
-        logging.warning("Deleting option compress_loss")
-        del params['dg_args']['compress_loss']
-    if 'compress_eps' in params['dg_args']:
-        logging.warning("Deleting option compress_eps")
-        del params['dg_args']['compress_eps']
-    if 'weight_loss_with_angle' in params['dg_args']:
-        logging.warning("Deleting option weight_loss_with_angle")
-        del params['dg_args']['weight_loss_with_angle']
+    params['dg_args'] = _remove(params['dg_args'], 'compress_loss')
+    params['dg_args'] = _remove(params['dg_args'], 'compress_eps')
+    params['dg_args'] = _remove(params['dg_args'], 'weight_loss_with_angle')
+
+    # ------
+    # Even older models:
+    # ------
+    params = _replace(params, 'embedding_key_x', 'input_embedding_key')
+    params = _replace(params, 'd_model', 'input_embedded_size')  # NOT the same if TTST or TTO model, but I don't think I have any...
+
+    # Added cnn options
+    if 'nb_cnn_filters' not in params:
+        logging.warning("Adding options for CNN")
+        params['nb_cnn_filters'] = None
+    if 'kernel_size' not in params:
+        logging.warning("Adding options for CNN")
+        params['kernel_size'] = None
+
+    # Neighborhood management modified
+    r = params['neighborhood_radius']
+    if isinstance(r, list):
+        logging.warning("Updating neighborhood radius management")
+        params['neighborhood_radius'] = len(r)
+        params['neighborhood_resolution'] = r[0]
+        if len(r) > 1:
+            if not np.all(np.diff(r) == r[0]):
+                raise ValueError("Now, neighborhood must have the same "
+                                 "resolution between each layer of "
+                                 "neighborhood. But got: {}".format(r))
 
     return params
 
+def fix_model_state(cls, model_dir):
+    print("\n--------------- In model state ():".format(model_dir))
+    model_state = cls._load_state(model_dir)
+    model_state = _replace(model_state, 'embedding_layer_x.linear.weight', 
+                           'input_embedding_layer.linear.weight')
+    model_state = _replace(model_state, 'embedding_layer_x.linear.bias', 
+                           'input_embedding_layer.linear.bias')
+    torch.save(model_state, os.path.join(model_dir, "model_state.pkl"))
 
-def fix_other_checkpoint_params(checkpoint_state):
+
+def fix_checkpoint_params(checkpoint_state):
     """
     Updating non-specific params (trainer, batch loader, etc)
     """
     # Nothing to do for Transformer, I had not used it before updates.
     # See l2t_update_deprecated_exp if I have issues.
+    print("\n--------------- In checkpoint params:")
+    # 1) Dataset params: better use a --hdf5_path to fix.
+
+    # 2) Trainer params : nb_steps --> nb_segments, no more lr_decrease_params
+    checkpoint_state['params_for_init'] = _replace(
+        checkpoint_state['params_for_init'], 'tracking_phase_nb_steps_init',
+        'tracking_phase_nb_segments_init')
+    checkpoint_state['params_for_init'] = _remove(
+        checkpoint_state['params_for_init'], 'lr_decrease_params')
+
+    # 3) Monitors: new var ever_max, ever_min
+    for k in checkpoint_state['current_states'].keys():
+        if isinstance(checkpoint_state['current_states'][k], dict) and \
+                'average_per_epoch' in checkpoint_state['current_states'][k].keys():
+            # Found a monitor
+            if 'ever_min' not in checkpoint_state['current_states'][k]:
+                logging.warning("Setting false min, max for monitor {}. "
+                                # But not sure this is ever used.... TODO
+                                .format(k))
+                checkpoint_state['current_states'][k]['ever_min'] = -np.inf
+                checkpoint_state['current_states'][k]['ever_max'] = np.inf
+    
+    # New monitor
+    if 'unclipped_grad_norm_monitor_state' not in checkpoint_state['current_states']:
+        logging.warning("Adding a new monitor (unclipped_grad_norm)")
+        monitor = BatchHistoryMonitor('unclipped_grad_norm_monitor', 
+                                       weighted=False)
+        checkpoint_state['current_states'][monitor.name + '_state'] = monitor.get_state()
 
     return checkpoint_state
 
+def fix_checkpoint_rng_state(checkpoint_state):
+    print("\n--------------- In checkpoint state:")
 
-def fix_model_parameters_json_file(args):
+    assert 'torch_cuda_state' in checkpoint_state['current_states']
+    checkpoint_state['current_states']['torch_cuda_state'] = None
+    return checkpoint_state
+
+
+def load_both_models_checkpoint_best_and_fix(args):
     """
     Updating this specific model's params (Transformers)
     """
@@ -112,10 +182,10 @@ def fix_model_parameters_json_file(args):
                                .format(format_dict_to_str(params),
                                        format_dict_to_str(params2)))
     del params2
-    logging.debug("Loaded params:\n{}".format(format_dict_to_str(params)))
+    logging.info("Loaded params:\n{}".format(format_dict_to_str(params)))
 
     # 3) Fixing params
-    params = fix_deprecated_transformers_params(params)
+    params = fix_model_params(params)
     print("\n\n----------------Fixed the model parameters ----------------\n"
           "Reformated model's params:\n " + format_dict_to_str(params))
 
@@ -132,6 +202,11 @@ def fix_model_parameters_json_file(args):
     with open(params_in_best_model, 'w') as json_file:
         json_file.write(json.dumps(params, indent=4, separators=(',', ': ')))
 
+    # 5. Fixing model state
+    fix_model_state(cls, fixed_checkpoint_model_dir)
+    fix_model_state(cls, fixed_best_model_dir)
+
+
     # Verify that both models can be loaded
     _ = cls.load_model_from_params_and_state(
         fixed_checkpoint_model_dir)
@@ -141,7 +216,7 @@ def fix_model_parameters_json_file(args):
     return model
 
 
-def fix_checkpoint(args, model):
+def load_checkpoint_and_fix(args, model):
     # Fixing trainer
 
     # Loading checkpoint
@@ -151,41 +226,22 @@ def fix_checkpoint(args, model):
 
     # Verify hdf5
     dataset_params = checkpoint_state['dataset_params']['training set']
-    if not os.path.isfile(dataset_params['hdf5_file']):
-        if args.new_hdf5 is None:
-            raise ValueError("hdf5 file has been deleted or moved ({})\n"
-                             "Please set a path to a new hdf5.")
-        else:
-            # Get the hdf5
-            dataset = prepare_multisubjectdataset(
-                argparse.Namespace(**{'hdf5_file': args.new_hdf5,
-                                      'lazy': True,
-                                      'cache_size': 1}))
-            # Compare all values
-            for k, v in dataset_params.items():
-                if k not in ['set_name', 'hdf5_file', 'lazy']:
-                    assert dataset.training_set.__getattribute__(k) == v, \
-                        ("Value {} in old hdf5 (training set) was {} but is "
-                         "{} in the new one!"
-                         .format(k, v,
-                                 dataset.training_set.__getattribute__(k)))
-                    assert dataset.validation_set.__getattribute__(k) == v, \
-                        ("Value {} in old hdf5 (validation set) was {} but is "
-                         "{} in the new one!"
-                         .format(k, v,
-                                 dataset.training_set.__getattribute__(k)))
-
-    elif args.new_hdf5 is not None:
-        raise ValueError("We already have all required information from the "
-                         "hdf5 at {}. We do not need a --new_hdf5.")
+    if args.hdf5_path is None and not os.path.isfile(dataset_params['hdf5_file']):
+        raise ValueError("hdf5 file has been deleted or moved ({})\n"
+                         "Please set a path to a new hdf5.")
+    elif args.hdf5_path is not None:
+        # Get the hdf5
+        dataset = prepare_multisubjectdataset(
+            argparse.Namespace(**{'hdf5_file': args.hdf5_path,
+                                  'lazy': True,
+                                  'cache_size': 1}))
     else:
-        # Ensure it was lazy
         dataset_params['lazy'] = True
         dataset = prepare_multisubjectdataset(
             argparse.Namespace(**dataset_params))
 
     # Fixing checkpoint
-    checkpoint_state = fix_other_checkpoint_params(checkpoint_state)
+    checkpoint_state = fix_checkpoint_params(checkpoint_state)
     checkpoint_dir = os.path.join(args.out_experiment, "checkpoint")
     torch.save(checkpoint_state,
                os.path.join(checkpoint_dir, "checkpoint_state.pkl"))
@@ -196,11 +252,37 @@ def fix_checkpoint(args, model):
     batch_loader = DWIMLBatchLoaderOneInput.init_from_checkpoint(
             dataset, model, checkpoint_state['batch_loader_params'])
     experiments_path, experiment_name = os.path.split(args.out_experiment)
-    _ = TransformerTrainer.init_from_checkpoint(
-        model, experiments_path, experiment_name,
-        batch_sampler, batch_loader,
-        checkpoint_state, new_patience=None, new_max_epochs=None,
-        log_level='WARNING')
+    if experiments_path == '':
+        experiments_path = './'
+
+    try:
+        _ = TransformerTrainer.init_from_checkpoint(
+            model, experiments_path, experiment_name,
+            batch_sampler, batch_loader,
+            checkpoint_state, new_patience=None, new_max_epochs=None,
+            log_level='WARNING')
+    except RuntimeError as e:
+        if 'RNG state' in str(e):
+            logging.warning("RNG error in the checkpoint, due to pytorch "
+                            "version, probably. Will ignore the RNG state. "
+                            "Will probably not really influence anything")
+            checkpoint_path = os.path.join(
+                experiments_path, experiment_name, "checkpoint",
+                "checkpoint_state.pkl")
+            checkpoint_state = torch.load(checkpoint_path, weights_only=False)
+            checkpoint_state = fix_checkpoint_rng_state(checkpoint_state)
+
+            print("Saving new state as ", checkpoint_path)
+            torch.save(checkpoint_state, checkpoint_path)
+            checkpoint_state = torch.load(checkpoint_path, weights_only=False)
+    
+            _ = TransformerTrainer.init_from_checkpoint(
+                    model, experiments_path, experiment_name,
+                    batch_sampler, batch_loader,
+                    checkpoint_state, new_patience=None, new_max_epochs=None,
+                    log_level='WARNING')
+        else:
+            raise RuntimeError(e)
 
 
 def main():
@@ -208,7 +290,7 @@ def main():
     args = p.parse_args()
 
     # General logging (ex, scilpy: Warning)
-    logging.getLogger().setLevel(level=logging.WARNING)
+    logging.getLogger().setLevel(args.verbose)
 
     if not os.path.exists(args.experiment_path):
         raise FileNotFoundError("Experiment not found ({})."
@@ -218,10 +300,8 @@ def main():
                               .format(args.out_experiment))
     shutil.copytree(args.experiment_path, args.out_experiment)
 
-    model = fix_model_parameters_json_file(args)
-
-    if args.experiment_path != args.out_experiment:
-        fix_checkpoint(args, model)
+    model = load_both_models_checkpoint_best_and_fix(args)
+    load_checkpoint_and_fix(args, model)
 
     print("Out experiment {} should now be usable!"
           .format(args.out_experiment))

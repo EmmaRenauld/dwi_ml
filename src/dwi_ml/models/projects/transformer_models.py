@@ -277,19 +277,6 @@ class AbstractTransformerModel(ModelWithNeighborhood, ModelWithDirectionGetter,
 
         return p
 
-    @classmethod
-    def _load_params(cls, model_dir):
-        params = super()._load_params(model_dir)
-
-        # d_model now a property method.
-        if 'd_model' in params:
-            if isinstance(cls, TransformerSrcOnlyModel):
-                params['input_embedded_size'] = params['d_model']
-
-            del params['d_model']
-
-        return params
-
     def set_context(self, context):
         # Training, validation: Used by trainer. Nothing special.
         # Tracking: Used by tracker. Returns only the last point.

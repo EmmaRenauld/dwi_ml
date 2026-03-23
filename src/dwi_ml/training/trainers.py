@@ -518,7 +518,7 @@ class DWIMLTrainer:
         self.batch_loader.np_rng.set_state(current_states['loader_np_rng_state'])
         #  - torch
         torch.set_rng_state(current_states['torch_rng_state'])
-        if self.use_gpu:
+        if self.use_gpu and current_states['torch_cuda_state'] is not None:
             torch.cuda.set_rng_state(current_states['torch_cuda_state'])
 
         # B. Current epoch
