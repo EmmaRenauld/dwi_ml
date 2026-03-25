@@ -30,10 +30,10 @@ from scilpy.io.utils import (add_overwrite_arg, add_verbose_arg,
 
 from dipy.io.stateful_tractogram import set_sft_logger_level
 
-from dwi_ml.data.hdf5.hdf5_creation import HDF5Creator
-from dwi_ml.data.hdf5.utils import (
+from dwi_ml.general.data.hdf5.hdf5_creation import HDF5Creator
+from dwi_ml.general.data.hdf5.utils import (
     add_hdf5_creation_args, add_streamline_processing_args)
-from dwi_ml.experiment_utils.timer import Timer
+from dwi_ml.general.experiment_utils.timer import Timer
 
 
 def _initialize_intermediate_subdir(hdf5_file, save_intermediate):

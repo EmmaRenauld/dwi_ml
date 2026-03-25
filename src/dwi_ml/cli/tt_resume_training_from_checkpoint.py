@@ -7,7 +7,6 @@ import os
 # comet_ml not used, but comet_ml requires to be imported before torch.
 # See bug report here https://github.com/Lightning-AI/lightning/issues/5829
 # Importing now to solve issues later.
-import comet_ml
 
 # Also, after upgrading torch, I now have a lot of warnings:
 # FutureWarning: `torch.distributed.reduce_op` is deprecated, please use
@@ -21,15 +20,16 @@ warnings.filterwarnings("ignore",
 
 from scilpy.io.utils import add_verbose_arg
 
-from dwi_ml.data.dataset.utils import prepare_multisubjectdataset
-from dwi_ml.experiment_utils.timer import Timer
-from dwi_ml.io_utils import verify_which_model_in_path
-from dwi_ml.models.projects.transformer_models import find_transformer_class
-from dwi_ml.training.batch_loaders import DWIMLBatchLoaderOneInput
-from dwi_ml.training.batch_samplers import DWIMLBatchIDSampler
-from dwi_ml.training.projects.transformer_trainer import TransformerTrainer
-from dwi_ml.training.utils.experiment import add_args_resuming_experiment
-from dwi_ml.training.utils.trainer import run_experiment
+from dwi_ml.general.data.dataset.utils import prepare_multisubjectdataset
+from dwi_ml.general.experiment_utils.timer import Timer
+from dwi_ml.general.io_utils import verify_which_model_in_path
+from dwi_ml.general.training.batch_loaders import DWIMLBatchLoaderOneInput
+from dwi_ml.general.training.batch_samplers import DWIMLBatchIDSampler
+from dwi_ml.general.training.utils.experiment import add_args_resuming_experiment
+from dwi_ml.general.training.utils.trainer import run_experiment
+
+from dwi_ml.projects.Transformers.transformer_models import find_transformer_class
+from dwi_ml.projects.Transformers.transformer_trainer import TransformerTrainer
 
 
 def prepare_arg_parser():

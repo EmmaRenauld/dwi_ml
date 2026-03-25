@@ -9,7 +9,7 @@ import argparse
 
 from comet_ml import ExistingExperiment
 
-from dwi_ml.training.trainers import DWIMLTrainer
+from dwi_ml.general.training.trainers import DWIMLTrainer
 
 
 def _build_arg_parser():

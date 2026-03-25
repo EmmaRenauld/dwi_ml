@@ -21,19 +21,20 @@ from scilpy.tracking.utils import (add_seeding_options,
                                    verify_streamline_length_options,
                                    verify_seed_options, add_out_options)
 
-from dwi_ml.experiment_utils.prints import format_dict_to_str
-from dwi_ml.experiment_utils.timer import Timer
-from dwi_ml.io_utils import verify_which_model_in_path
-from dwi_ml.models.projects.transformer_models import find_transformer_class
-from dwi_ml.testing.utils import prepare_dataset_one_subj, \
+from dwi_ml.general.experiment_utils.prints import format_dict_to_str
+from dwi_ml.general.experiment_utils.timer import Timer
+from dwi_ml.general.io_utils import verify_which_model_in_path
+from dwi_ml.general.testing.utils import prepare_dataset_one_subj, \
     find_hdf5_associated_to_experiment
-from dwi_ml.tracking.projects.transformer_tracker import \
+from dwi_ml.general.tracking.tracking_mask import TrackingMask
+from dwi_ml.general.tracking.io_utils import (add_tracking_options,
+                                              prepare_seed_generator,
+                                              prepare_tracking_mask,
+                                              track_and_save)
+
+from dwi_ml.projects.Transformers.transformer_models import find_transformer_class
+from dwi_ml.projects.Transformers.transformer_tracker import \
     TransformerTracker
-from dwi_ml.tracking.tracking_mask import TrackingMask
-from dwi_ml.tracking.io_utils import (add_tracking_options,
-                                      prepare_seed_generator,
-                                      prepare_tracking_mask,
-                                      track_and_save)
 
 # Also, after upgrading torch, I now have a lot of warnings:
 # FutureWarning: `torch.distributed.reduce_op` is deprecated, please use

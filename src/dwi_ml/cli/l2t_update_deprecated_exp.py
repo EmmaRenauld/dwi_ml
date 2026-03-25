@@ -17,12 +17,13 @@ import numpy as np
 import torch
 from scilpy.io.utils import add_verbose_arg
 
-from dwi_ml.data.dataset.utils import prepare_multisubjectdataset
-from dwi_ml.experiment_utils.prints import format_dict_to_str
-from dwi_ml.models.projects.learn2track_model import Learn2TrackModel
-from dwi_ml.training.batch_loaders import DWIMLBatchLoaderOneInput
-from dwi_ml.training.batch_samplers import DWIMLBatchIDSampler
-from dwi_ml.training.projects.learn2track_trainer import Learn2TrackTrainer
+from dwi_ml.general.data.dataset.utils import prepare_multisubjectdataset
+from dwi_ml.general.experiment_utils.prints import format_dict_to_str
+from dwi_ml.general.training.batch_loaders import DWIMLBatchLoaderOneInput
+from dwi_ml.general.training.batch_samplers import DWIMLBatchIDSampler
+
+from dwi_ml.projects.Learn2track.learn2track_model import Learn2TrackModel
+from dwi_ml.projects.Learn2track.learn2track_trainer import Learn2TrackTrainer
 
 
 def prepare_arg_parser():
@@ -254,7 +255,7 @@ def load_checkpoint_and_fix(args, model):
             dataset, model, checkpoint_state['batch_loader_params'])
     experiments_path, experiment_name = os.path.split(args.out_experiment)
     if experiments_path == '':
-        experiments_path = './'
+        experiments_path = '/'
 
     try:
         _ = Learn2TrackTrainer.init_from_checkpoint(

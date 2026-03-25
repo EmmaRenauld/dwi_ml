@@ -1,3 +1,4 @@
+.. _data_management_index:
 
 Understanding our data management
 =================================
