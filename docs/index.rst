@@ -9,7 +9,7 @@ using machine learning and deep learning methods. It is mostly focused on the tr
             :align: center
             :width: 500
 
-In this doc, we will present you everything included in this library for you to become either a developer or a user. Note that to get a full understanding of every line of code, you can browse further in each section.
+In this doc, we will present you everything included in this library for you to become either a developer or a user.
 
 On this page:
 
@@ -39,17 +39,17 @@ Pages in this section explain how to use our scripts to use our pre-trained mode
 
 - **1. Downloading models**: If you want to use our pre-trained models, you may contact us for access to the models learned weights. They will be available online once publications are accepted.
 
-    - :ref:`our_models`
-        - :ref:`tractography_models`
-        - :ref:`denoising_models`
-
 - **2. Organizing your data**: In most cases, data must be organized correctly as a hdf5 before usage. Follow the link below for an explanation.
 
     - :ref:`hdf5_usage`
 
 - **3. Using our models to perform tractography**: Use our models to track on your own subjects!
 
-    - :ref:`user_tracking`
+    - :ref:`tractography_models`
+
+- **OR, Using our models to denoise your tractograms**: (upcoming)
+
+    - :ref:`denoising_models`
 
 .. --------------------Hidden toctree: ---------------
 
@@ -59,11 +59,9 @@ Pages in this section explain how to use our scripts to use our pre-trained mode
     :hidden:
     :caption: Explanations for users (pre-trained)
 
-    for_users/models/our_models
     for_users/hdf5
-    for_users/tracking
-
-------------------------------
+    for_users/models/tractography_models
+    for_users/models/denoising_models
 
 .. _section_advanced_users:
 
@@ -106,7 +104,7 @@ Page in this section explain more in details how the code is implemented in pyth
 - **4. Use your trained model**: Discover our objects allowing to perform a full tractography from a tractography-model.
 
     - :ref:`model_testing`
-    - :ref:`user_tracking`
+    - :ref:`tractography_models`
     - :ref:`tracking`
 
 .. --------------------Hidden toctree: ---------------

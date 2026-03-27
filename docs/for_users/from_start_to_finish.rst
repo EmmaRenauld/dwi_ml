@@ -10,7 +10,7 @@ If you want, you can use our scripts to train our models with a new set of hyper
 
 3. Visualizing the logs to make sure you are satisfied with the results. For more information, see :ref:`visu_logs` for more information.
 
-4. Using your newly trained model! For tractography models, this uses scripts such as ``**_track_from_model``. See :ref:`user_tracking` for more information.
+4. Using your newly trained model! For tractography models, this uses scripts such as ``**_track_from_model``. See :ref:`tractography_models` for more information.
 
 Denoising models
 ----------------

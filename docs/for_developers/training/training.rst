@@ -40,7 +40,7 @@ This is an example of basic script that you could create to train your model wit
 - Your model
 - An instance of our object ``MultiSubjectDataset``: it knows how to get data in the hdf5, possibly in a lazy way. See :ref:`ref_data_containers` for more information.
 - An instance of a ``BatchSampler``: it knows how to sample a list of chosen streamlines for a batch. See :ref:`batch_sampler` for more information.
-- An instance of a ``BatchLoader``: it knows how to load the data using the ``MultiSubjectDataset``, and how to modify the streamlines based on your model's requirements, for instance, adding noise or compressing / changing the step size / reversing / splitting the streamlines. See :ref:`batch_loader` for more information.
+- An instance of a ``BatchLoader``: it knows how to load the data using the ``MultiSubjectDataset``, and how to modify the streamlines based on your model's requirements, for instance, adding noise or compressing / changing the step size / reversing / splitting the streamlines. See :ref:`batch_loaders` for more information.
 
 Your final python script could look like::
 
