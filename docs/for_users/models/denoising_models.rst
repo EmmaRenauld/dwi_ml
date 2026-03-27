@@ -1,7 +1,7 @@
 .. _denoising_models:
 
 
-Denoising models
-================
+Using denoising models
+======================
 
 Coming soon: Autoencoder (AE) model!

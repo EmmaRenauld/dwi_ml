@@ -1,7 +1,7 @@
 .. _tractography_models:
 
-Tractography models
-===================
+Using tractography models
+=========================
 
 In both cases, the input data must be formatted as an hdf5. See :ref:`hdf5_usage` for more information.
 

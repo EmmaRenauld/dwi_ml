@@ -70,13 +70,13 @@ Pages in this section explain how to use our scripts to use our pre-trained mode
 
 Pages in this section are useful if you want to train a model based on pre-existing code, such as Learn2track or TractographyTransformers, using your favorite set of hyperparameters.
 
-(Improved documentation coming soon!)
 
     .. toctree::
         :maxdepth: 2
         :caption: Explanations for users (re-train)
 
-        for_users/from_start_to_finish
+        for_users/from_start_to_finish_tracking
+        for_users/from_start_to_finish_denoising
         for_users/visu_logs
 
 .. _section_developers:
