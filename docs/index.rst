@@ -90,6 +90,10 @@ Page in this section explain more in details how the code is implemented in pyth
 
     - :ref:`create_your_model`
 
+        - :ref:`main_abstract_model`
+        - :ref:`other_main_models`
+        - :ref:`direction_getters`
+
 - **2. Explore our hdf5 organization**: Our library has been organized to use data in the hdf5 format. Our hdf5 data organization should probably be enough for your needs.
 
     - :ref:`hdf5_usage`
@@ -100,15 +104,17 @@ Page in this section explain more in details how the code is implemented in pyth
     - :ref:`trainers`
     - :ref:`data_management_index`
 
-- **4. Use your trained model**: Discover our objects allowing to perform a full tractography from a tractography-model.
+        - :ref:`ref_data_containers`
+        - :ref:`batch_sampler`
+        - :ref:`batch_loaders`
 
-    - :ref:`model_testing`
-    - :ref:`tractography_models`
+- **4. Use your trained model**: This step depends on your model. For tractography models, discover our objects allowing to perform a full tractography from a tractography model. You can also see our pages for Learntrack and TractoTransformer usage: :ref:`tractography_models`.
+
     - :ref:`tracking`
 
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 3
     :caption: Explanations for developers
     :hidden:
 
@@ -116,5 +122,4 @@ Page in this section explain more in details how the code is implemented in pyth
     for_developers/hdf5/advanced_hdf5_organization
     for_developers/training/training
     for_developers/data_management/index
-    for_developers/testing/general_testing
     for_developers/testing/tracking_objects
