@@ -9,7 +9,7 @@ using machine learning and deep learning methods. It is mostly focused on the tr
             :align: center
             :width: 500
 
-In this doc, we will present you everything included in this library for you to become either a developer or a user. Note that to get a full understanding of every line of code, you can browse further in each section.
+In this doc, we will present you everything included in this library for you to become either a developer or a user.
 
 On this page:
 
@@ -39,17 +39,17 @@ Pages in this section explain how to use our scripts to use our pre-trained mode
 
 - **1. Downloading models**: If you want to use our pre-trained models, you may contact us for access to the models learned weights. They will be available online once publications are accepted.
 
-    - :ref:`our_models`
-        - :ref:`tractography_models`
-        - :ref:`denoising_models`
-
 - **2. Organizing your data**: In most cases, data must be organized correctly as a hdf5 before usage. Follow the link below for an explanation.
 
     - :ref:`hdf5_usage`
 
 - **3. Using our models to perform tractography**: Use our models to track on your own subjects!
 
-    - :ref:`user_tracking`
+    - :ref:`tractography_models`
+
+- **OR, Using our models to denoise your tractograms**: (upcoming)
+
+    - :ref:`denoising_models`
 
 .. --------------------Hidden toctree: ---------------
 
@@ -59,11 +59,9 @@ Pages in this section explain how to use our scripts to use our pre-trained mode
     :hidden:
     :caption: Explanations for users (pre-trained)
 
-    for_users/models/our_models
     for_users/hdf5
-    for_users/tracking
-
-------------------------------
+    for_users/models/tractography_models
+    for_users/models/denoising_models
 
 .. _section_advanced_users:
 
@@ -72,13 +70,13 @@ Pages in this section explain how to use our scripts to use our pre-trained mode
 
 Pages in this section are useful if you want to train a model based on pre-existing code, such as Learn2track or TractographyTransformers, using your favorite set of hyperparameters.
 
-(Improved documentation coming soon!)
 
     .. toctree::
         :maxdepth: 2
-        :caption: Explanations for users (re-train)
+        :caption: Explanations for explorers
 
-        for_users/from_start_to_finish
+        for_users/from_start_to_finish_tracking
+        for_users/from_start_to_finish_denoising
         for_users/visu_logs
 
 .. _section_developers:
@@ -92,6 +90,10 @@ Page in this section explain more in details how the code is implemented in pyth
 
     - :ref:`create_your_model`
 
+        - :ref:`main_abstract_model`
+        - :ref:`other_main_models`
+        - :ref:`direction_getters`
+
 - **2. Explore our hdf5 organization**: Our library has been organized to use data in the hdf5 format. Our hdf5 data organization should probably be enough for your needs.
 
     - :ref:`hdf5_usage`
@@ -100,26 +102,24 @@ Page in this section explain more in details how the code is implemented in pyth
 - **3. Train your model**: Take a look at how we have implemented our trainers for an efficient management of heavy data. Note that our trainer uses Data Management classes such as our BathLoader and BatchSampler. See below for more information.
 
     - :ref:`trainers`
-    - :ref:`trainers_details`
     - :ref:`data_management_index`
 
-- **4. Use your trained model**: Discover our objects allowing to perform a full tractography from a tractography-model.
+        - :ref:`ref_data_containers`
+        - :ref:`batch_sampler`
+        - :ref:`batch_loaders`
 
-    - :ref:`model_testing`
-    - :ref:`user_tracking`
+- **4. Use your trained model**: This step depends on your model. For tractography models, discover our objects allowing to perform a full tractography from a tractography model. You can also see our pages for Learntrack and TractoTransformer usage: :ref:`tractography_models`.
+
     - :ref:`tracking`
 
-.. --------------------Hidden toctree: ---------------
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 3
     :caption: Explanations for developers
     :hidden:
 
     for_developers/models/index
     for_developers/hdf5/advanced_hdf5_organization
     for_developers/training/training
-    for_developers/training/trainers_details
     for_developers/data_management/index
-    for_developers/testing/general_testing
     for_developers/testing/tracking_objects

@@ -38,7 +38,7 @@ Alternatively, you can add it as an environment variable. Add this to your $HOME
 
         | export COMET_API_KEY=YOUR-API-KEY
 
-  An API (application programming interface) is a code that gets passed in by applications, containing information to identify its user, for instance. To get an API key, see `<https://https://www.comet.com/docs/v2/guides/getting-started/quickstart/#get-an-api-key>`_. Click on the key icon, copy value to the clipboard and save it in your file in $HOME.
+An API (application programming interface) is a code that gets passed in by applications, containing information to identify its user, for instance. To get an API key, see `<https://https://www.comet.com/docs/v2/guides/getting-started/quickstart/#get-an-api-key>`_. Click on the key icon, copy value to the clipboard and save it in your file in $HOME.
 
 
 Installing dwi_ml
