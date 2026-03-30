@@ -3,6 +3,8 @@
 Create your own model
 =====================
 
+You are welcome to add your own project's model in dwi_ml!
+
     .. toctree::
         :maxdepth: 1
         :titlesonly:
@@ -11,4 +13,3 @@ Create your own model
         main_abstract_model
         other_main_models
         directionGetters
-        formulas_fisher_gaussian

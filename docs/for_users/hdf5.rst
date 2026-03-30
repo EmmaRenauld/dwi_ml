@@ -67,28 +67,27 @@ This folder is the most important one and must be organized in a very precise wa
 Preparing the config file
 *************************
 
-To create the hdf5 file, you will need a config file such as below. HDF groups will be created accordingly for each subject in the hdf5.
+To create the hdf5 file, you will need a configuration file such as below. HDF groups will be created accordingly for each subject in the hdf5. Here is an example of a working config file.
 
-.. code-block:: bash
+.. code-block:: json
 
     {
         "input": {
             "type": "volume",
-            "files": ["dwi/dwi.nii.gz", "anat/t1.nii.gz", "dwi/*__dwi.nii.gz], --> Will get, for instance, subX__dwi.nii.gz
+            "files": ["dwi/dwi.nii.gz", "anat/t1.nii.gz", "dwi/*__dwi.nii.gz"],
             "standardization": "all",
-            "std_mask": [masks/some_mask.nii.gz]
+            "std_mask": ["masks/some_mask.nii.gz"]
              },
         "target": {
             "type": "streamlines",
-            "files": ["tractograms/bundle1.trk", "tractograms/wholebrain.trk", "tractograms/*__wholebrain.trk"], ----> Will get, for instance, sub1000__bundle1.trk
+            "files": ["tractograms/bundle1.trk", "tractograms/wholebrain.trk", "tractograms/*__wholebrain.trk"],
             "connectivity_matrix": "my_file.npy",
-            "connectivity_nb_blocs": 6  ---> OR
-            "connectivity_labels": labels_volume_group,
-            "dps_keys": ['dps1', 'dps2']
+            "connectivity_labels": "labels_volume_group",
+            "dps_keys": ["dps1", "dps2"]
              }
         "bad_streamlines": {
             "type": "streamlines",
-            "files": ["bad_tractograms/*"] ---> Will get all trk and tck files.
+            "files": ["bad_tractograms/*"]
              }
         "wm_mask": {
             "type": "volume",
@@ -101,9 +100,9 @@ To create the hdf5 file, you will need a config file such as below. HDF groups w
 General group attributes in the config file:
 """"""""""""""""""""""""""""""""""""""""""""
 
-Each group key will become the group's **name** in the hdf5. It can be anything you want. We suggest you keep it significative, ex 'input_volume', 'target_volume', 'target_directions'. In other scripts (ex, l2t_train_model.py, tt_train_model.py, etc), you will often be asked for the labels given to your groups.
+Each group key will become the group's **name** in the hdf5. It can be anything you want. We suggest you keep it significative, ex 'input_volume', 'target_volume', 'target_directions'.
 
-Each group may have a number of parameters:
+Each group must have the following parameters:
 
     - **"type"**: It must be recognized in dwi_ml. Currently, accepted datatype are:
 
@@ -126,9 +125,8 @@ Additional attributes for volume groups:
         - "per_file", to apply it independently on each file included in the group.
         - "none", to skip this step (default)
 
-****A note about data standardization**
-
-If all voxel were to be used, most of them would probably contain the background of the data, bringing the mean and std probably very close to 0. Thus, non-zero voxels only are used to compute the mean and std, or voxels inside the provided mask if any. If a mask is provided, voxels outside the mask could have been set to NaN, but the simpler choice made here was to simply modify all voxels [ data = (data - mean) / std ], even voxels outside the mask, with the mean and std of voxels in the mask. Mask name is provided through the config file. It is formatted as a list: if many files are listed, the union of the binary masks will be used.
+.. note::
+    **A note about data standardization:** If all voxel were to be used, most of them would probably contain the background of the data, bringing the mean and std probably very close to 0. Thus, non-zero voxels only are used to compute the mean and std, or voxels inside the provided mask if any. If a mask is provided, voxels outside the mask could have been set to NaN, but the simpler choice made here was to simply modify all voxels [ data = (data - mean) / std ], even voxels outside the mask, with the mean and std of voxels in the mask. Mask name is provided through the config file. It is formatted as a list: if many files are listed, the union of the binary masks will be used.
 
 
 Additional attributes for streamlines groups:

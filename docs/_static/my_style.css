@@ -12,15 +12,11 @@
   text-decoration: line-through;
 }
 
-/* Hiding captions on the main page. Did not allow to add comments under the
-caption. Adding subtitles instead, and we don't have duplicate caption. But we
-still want the caption in the sidebar.
- */
-.wy-nav-content .caption-text {
-    display: none;
-}
+/* -------------------
+   Changes prepared by Emmanuelle Renauld:
+   -------------------*/
 
-/* Code shows in red when writing with `code`. Changing to gray */
+/* Code shows in red when writing with ``code``. Changing to gray */
 code.literal {
     color: dimgray !important;
 }
@@ -46,13 +42,22 @@ div class rst-content
         background-color: #eeefef;
 }
 
-/*Now tables colors are off*/
+/*Now tables colors are off. Fixing.*/
 table .row-odd {
     background-color: white
 }
 
 table .row-even {
     background-color: #bfbdbd;
+}
+
+/* Creating a "centered" container.*/
+.centered {
+    text-align: center;
+}
+.centered table {
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* Adding the same padding to footers */

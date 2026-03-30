@@ -1,9 +1,9 @@
 .. _direction_getters:
 
-Create a tractography model: use a DirectionGetter
-==================================================
+The DirectionGetter Layer
+=========================
 
-Direction getter layers should be used as last layer of any streamline generation model for the tractography task. They define the format of the output and possible associated loss functions.
+``DirectionGetter`` layers should be used as last layer of any streamline generation model for the tractography task. They define the format of the output and possible associated loss functions.
 
 General architecture
 --------------------
@@ -20,6 +20,8 @@ Regression models
 -----------------
 
 These models use regression to learn directly a direction, formatted as a coordinate [x, y, z]. If EOS is used, then the direction is formatted as [x, y, z, eos], where eos is a probability between 0 and 1.
+
+.. container:: centered
 
         +------------------------+---------------------------------+
         | Shape of the output    | A vector of length 3 or 4       |
@@ -51,6 +53,7 @@ Classification models
 
 This model uses classification by formatting directions as a choice of direction among a list of discrete points on the sphere (Ex: ``dipy.data.get_sphere('symmetric724')``). Each point is a class. If EOS is used, it represents an additional class.
 
+.. container:: centered
 
         +------------------------+----------------------------------+
         | Shape of the output    | A vector of length K (nb class)  |
@@ -80,6 +83,8 @@ This is a regression model that learns parameters representing a *probability fu
 
 - **SingleGaussianDG**: the model is a 2-layer NN for the means and a 2-layer NN for the variances. The output is 6 parameters: 3 means (x, y, z) and 3 variances (x, y, z). If EOS is used, it is a 7th learned value.
 
+.. container:: centered
+
         +------------------------+-------------------------------------------------+
         | Shape of the output    | A vector of length 6 or 7                       |
         +------------------------+-------------------------------------------------+
@@ -91,6 +96,8 @@ This is a regression model that learns parameters representing a *probability fu
         +------------------------+-------------------------------------------------+
 
 - **GaussianMixtureDG**: In this case, the models learns to represent the function probability as a mixture of N Gaussians, possibly representing direction choices in the case of fiber crossing and other special configurations. The loss is again the negative log-likelihood. Note that the model is a 2-layer NN for the mean and a 2-layer NN for the variance, for each of N Gaussians. The output is N * (6 parameters: 3 means (x, y, z) and 3 variances (x, y, z) plus a mixture parameter for each, giving the probability that the right direction would be given by this Gaussian.
+
+.. container:: centered
 
         +------------------------+-------------------------------------------------+
         | Shape of the output    | A vector of length N * (7 or 8)                 |
@@ -109,6 +116,12 @@ Note that tyically, in the literature, Gaussian mixtures are used with expectati
 .. [1] Some code is available `in this blog <See for example here https://blog.dominodatalab.com/fitting-gaussian-process-models-python/>`_.
 .. [2] See the `Tractoinferno paper <https://www.nature.com/articles/s41597-022-01833-1>`_
 
+.. toctree::
+    :maxdepth: 1
+    :caption: Full formulas (Gaussian + FvM)
+    :hidden:
+
+    formulas_fisher_gaussian
 
 
 Fisher von mises models
@@ -120,6 +133,7 @@ See the detailed mathematics in :ref:`ref_formulas`.
 
 - **FisherVonMisesDG**: The loss is the negative log-likelihood. Note that the model is a 2-layer NN for the means and a 2-layer NN for the variances. See :ref:`ref_formulas` for the complete formulas. The output is 4 parameters: 3 for the means and one for kappa. If EOS is used, it is a 5th learned value.
 
+.. container:: centered
 
         +------------------------+-------------------------------------------------+
         | Shape of the output    | A vector of length 4 or 5.                      |
@@ -132,12 +146,6 @@ See the detailed mathematics in :ref:`ref_formulas`.
         +------------------------+-------------------------------------------------+
 
 **FisherVonMisesMixtureDG**: Not implemented yet.
-
-Other ideas
-'''''''''''
-
-An equivalent model could learn to represent the direction on the sphere to learn a normalized direction. The means would be 2D (phi, rho), and the variances too. This has not been implemented yet.
-
 
 %%%%%%%%%%%%%%%%%%%
 

@@ -73,7 +73,7 @@ Pages in this section are useful if you want to train a model based on pre-exist
 
     .. toctree::
         :maxdepth: 2
-        :caption: Explanations for users (re-train)
+        :caption: Explanations for explorers
 
         for_users/from_start_to_finish_tracking
         for_users/from_start_to_finish_denoising
@@ -107,10 +107,9 @@ Page in this section explain more in details how the code is implemented in pyth
     - :ref:`tractography_models`
     - :ref:`tracking`
 
-.. --------------------Hidden toctree: ---------------
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
     :caption: Explanations for developers
     :hidden:
 
