@@ -1203,14 +1203,15 @@ class DWIMLTrainerOneInput(DWIMLTrainer):
         n: int
             Total number of points for this batch.
         """
+        # 1) Send to GPU
         # Dataloader always works on CPU. Sending to right device.
         # (model is already moved).
         targets = [s.to(self.device, non_blocking=True, dtype=torch.float)
                    for s in targets]
 
-        # Getting the inputs points from the volumes.
-        # Uses the model's method, with the batch_loader's data.
-        # Possibly skipping the last point if not useful.
+        # 2) Format the streamlines
+        # Possibly skipping the last point if not useful (no EOS). Avoids
+        # interpolation for no reason at that point.
         streamlines_f = targets
         if isinstance(self.model, ModelWithDirectionGetter) and \
                 not self.model.direction_getter.add_eos:
@@ -1218,25 +1219,29 @@ class DWIMLTrainerOneInput(DWIMLTrainer):
             # associated target direction.
             streamlines_f = [s[:-1, :] for s in streamlines_f]
 
-        # Batch inputs is already the right length. Models don't need to
-        # discard the last point if no EOS. Avoid interpolation for no reason.
+        # 3) Interpolate the inputs
         batch_inputs = self.batch_loader.load_batch_inputs(
             streamlines_f, ids_per_subj)
 
-        logger.debug('*** Computing forward propagation')
-        # todo Possibly add noise to inputs here. Not ready
-        # Now add noise to streamlines for the forward pass
+        # 4) Data augmentation: noise is done AFTER interpolation
+        # Adds noise to streamlines for the forward pass only
         # (batch loader will do it depending on training / valid)
         streamlines_f = self.batch_loader.add_noise_streamlines_forward(
             streamlines_f, self.device)
+
+        # 5) Call the model
+        logger.debug('*** Computing forward propagation')
         model_outputs = self.model(batch_inputs, streamlines_f)
         del streamlines_f
 
-        logger.debug('*** Computing loss')
+        # 6) Other option for data augmentation: noise on the targets only.
         # Add noise to targets.
         # (batch loader will do it depending on training / valid)
         targets = self.batch_loader.add_noise_streamlines_loss(targets,
                                                                self.device)
+
+        # 6) Compute the loss
+        logger.debug('*** Computing loss')
         mean_loss, n = self.model.compute_loss(model_outputs, targets,
                                                average_results=True)
 

@@ -6,7 +6,8 @@ The MultisubjectDataset
 Here is how our data is organized to allow torch to use them through Dataloaders. All of the following can be used as lazy instead. Then, the data is only loaded when needed.
 
 
-- **(Lazy)MultisubjectDataset**
+(Lazy)MultisubjectDataset
+-------------------------
 
     - subcontainers:
 
@@ -20,9 +21,10 @@ Here is how our data is organized to allow torch to use them through Dataloaders
 
     - methods:
 
-        - *.load_data()*: loads the training and validation sets.
+        - *.load_data()*: loads the training and validation sets (if not lazy), or loads only the information about each subject.
 
-- **Multisubjectsubset**
+Multisubjectsubset
+------------------
 
     - subcontainers:
 
@@ -36,12 +38,13 @@ Here is how our data is organized to allow torch to use them through Dataloaders
 
     - methods:
 
-        - *.get_volume()*: gets a specific mri volume (ID corresponds to the group ID in the config_file) from a specific subject.
+        - *.get_volume(id)*: gets a specific mri volume (contained in the hdf5) from a specific subject.
         - *.get_volume_verify_cache()*: same, but if data was lazy, checks the volume cache first. If it was not cached, loads it and sends it to the cache.
         - *.__getitem__()*: used by the dataloader. Does not do anything per say, simply returns the sampled streamline id. The batch sampler will do the job of actually loading the data.
 
 
-- **(Lazy)SubjectsDataList**
+(Lazy)SubjectsDataList
+----------------------
 
     - subcontainers:
 
@@ -59,7 +62,8 @@ Here is how our data is organized to allow torch to use them through Dataloaders
         - *.getitem_with_handle()*: same, but in the lazy case, adds a hdf5 handle first to allow loading. You probably won't need this method: used in the get_volume() method of the MultisubjectSubset.
 
 
-- **(Lazy)SubjectData**
+(Lazy)SubjectData
+-----------------
 
     - subcontainers:
 
@@ -67,6 +71,7 @@ Here is how our data is organized to allow torch to use them through Dataloaders
         - .sft_data_list: list of **SFTData** (lazy or not)
 
     - other attributes:
+
         - .volume_groups, .streamline_group, .subject_id: general attributes found in the hdf5 file.
 
     - methods:
@@ -75,7 +80,8 @@ Here is how our data is organized to allow torch to use them through Dataloaders
         - *.with_handle()*: useful only in the lazy case. Adds hdf_handle to the subject to allow loading.
 
 
-**MRIData**
+MRIData
+-------
 
     - attributes:
 
@@ -89,7 +95,8 @@ Here is how our data is organized to allow torch to use them through Dataloaders
         - *.as_tensor()*: gets the data.
 
 
-**SFTData**
+SFTData
+-------
 
     - attributes:
 

@@ -98,7 +98,6 @@ Page in this section explain more in details how the code is implemented in pyth
 - **3. Train your model**: Take a look at how we have implemented our trainers for an efficient management of heavy data. Note that our trainer uses Data Management classes such as our BathLoader and BatchSampler. See below for more information.
 
     - :ref:`trainers`
-    - :ref:`trainers_details`
     - :ref:`data_management_index`
 
 - **4. Use your trained model**: Discover our objects allowing to perform a full tractography from a tractography-model.
@@ -116,7 +115,6 @@ Page in this section explain more in details how the code is implemented in pyth
     for_developers/models/index
     for_developers/hdf5/advanced_hdf5_organization
     for_developers/training/training
-    for_developers/training/trainers_details
     for_developers/data_management/index
     for_developers/testing/general_testing
     for_developers/testing/tracking_objects

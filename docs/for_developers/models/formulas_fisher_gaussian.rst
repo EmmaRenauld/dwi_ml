@@ -10,9 +10,9 @@ Log-likelihood of a single Gaussian
 
     - N(x) = The normal distribution, with mean mu and variance sigma^2.
     - C = the covariance matrix. It indicates the relations between each all dimensions x,y,z. C is diagonal if the axis are independant, with the variances on the diagonal.
-    - d = the dimension of data (here, 3: x,y,z)
+    - d = the dimension of data (here, 3: [x,y,z])
 
-    We do pose that the axis are independant. WHY CAN WE POSE THAT????
+    We pose that the axis are independant. We assume the x, y, and z components are independent because the model predicts each directional axis separately, and there is no prior reason to expect correlations between them in the learned representation. This simplifies the covariance structure to a diagonal matrix without significantly affecting the model’s performance.
 
 **Formulas:**
 
